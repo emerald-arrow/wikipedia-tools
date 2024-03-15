@@ -147,41 +147,52 @@ def print_table(data_rows, races_count, points_scales, classification_type):
 def read_classification_type_input():
 	num = 0
 
+	options = {
+		'1': 'Kierowcy',
+		'2': 'Producenci',
+		'3': 'Zespoły'
+	}
+
 	print('Wybierz typ klasyfikacji w podanym pliku HTML:')
 
 	while True:
 		try:
-			print('1. Kierowcy')
-			print('2. Zespoły')
-			print('3. Producenci')
+			for x in options:
+				print(f'{x}. {options[x]}')
 			
 			num = int(input('Wybór (1-3): '))
 		except ValueError:
 			print('Podaj liczbę naturalną z przedziału 1-3.')
-
-		if num == 1:
+		
+		if num not in options.keys():
+			print('Liczba musi być w przedziale 1-3.')
+		elif num == 1:
 			return Classification.DRIVERS
 		elif num == 2:
-			return Classification.TEAMS
-		elif num == 3:
 			return Classification.MANUFACTURERS
-		else:
-			print('Liczba musi być w przedziale 1-3.')
+		elif num == 3:
+			return Classification.TEAMS			
 
 # Odczytanie czy w wyścigach przydzielono pełne punkty
 def read_were_half_points_awarded():
 	num = 0
 	were_half_points_awarded = False
 
+	options = {
+		'1': 'Tak',
+		'2': 'Nie'
+	}
+
 	print('Czy w którymś z wyścigów przydzielono połowę punktów?')
-	print('1. Tak')
-	print('2. Nie')
 
 	while True:
 		try:
+			for x in options:
+				print(f'{x}. {options[x]}')
+
 			num = int(input('Wybór (1-2): '))
 		except ValueError:
-			print('Podaj liczbę naturalną z przedziału 1-2.')
+			print('Wybierz 1 lub 2.')
 
 		if num == 1:
 			were_half_points_awarded = True
@@ -189,7 +200,7 @@ def read_were_half_points_awarded():
 		elif num == 2:
 			break
 		else:
-			print('Liczba musi być w przedziale 1-2.')
+			print('Wybierz 1 lub 2.')
 	
 	if were_half_points_awarded is True:
 		read_half_points_races()
@@ -233,9 +244,11 @@ def read_point_scales(races_number):
 	scales_input = ''
 	scales = []
 
+	print('Podaj skale punktowe w wyścigach (1/1,5/2), jeśli wyścig jeszcze się nie odbył to wpisz 0, liczby oddziel spacjami.')
+
 	while True:
 		try:
-			scales_input = input('Podaj skale punktowe w wyścigach, liczby oddziel spacjami: ')
+			scales_input = input('Skale punktowe: ')
 		except ValueError:
 			print('Niewłaściwe dane na wejściu')
 		

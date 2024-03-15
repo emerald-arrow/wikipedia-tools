@@ -1,7 +1,10 @@
-# Słownik zawierający odpowiednie pozycje i kolory tła dla systemu punktowego WEC od sezonu 2022
+# Słownik zawierający odpowiednie pozycje i kolory tła dla systemu punktowego WEC od sezonu 2022, 0 lub myślnik (-) spowodują wypisanie pustej komórki
 points_to_positions = {
+	'0': {
+	'0' : '| '
+	},
     '1': {
-      '25' : '| style="background:#FFFFBF;" | 1',
+    '25' : '| style="background:#FFFFBF;" | 1',
 	'25PP' : '| style="background:#FFFFBF; font-weight: bold;" | 1',
 	  '18' : '| style="background:#DFDFDF;" | 2',
 	'18PP' : '| style="background:#DFDFDF; font-weight: bold;" | 2',
