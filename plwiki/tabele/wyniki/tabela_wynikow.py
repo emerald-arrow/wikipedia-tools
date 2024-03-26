@@ -5,10 +5,8 @@ sys.dont_write_bytecode = True
 
 import os
 import csv
+import sqlite3
 from enum import Enum
-from db import cars
-from db import drivers
-from db import teams
 
 # Typy sesji
 class Session(Enum):
@@ -21,341 +19,506 @@ class Organiser(Enum):
 	ACO = 1
 	IMSA = 2
 
-# Odczyanie pliku .CSV i wypisanie kodu tabeli dla wyników wyścigu
-def print_race_table(organiser, filename):
+# Serie wyścigowe
+class Series:
+	def __init__(self, db_id: int, name: str, organiser: Organiser) -> None:
+		self.db_id = db_id
+		self.name = name
+		self.organiser = organiser
+
+# Połączenie z bazą danych
+def connect_db():
+    db_relative = '../../../common/database.db'
+    db_absolute = os.path.abspath(db_relative)
+    
+    db = sqlite3.connect(db_absolute)
+    return db
+
+# Pobieranie id wybranej wersji wikipedii
+def get_wiki_id(version: str) -> int | None:
+	db = connect_db()
+	
+	with db:
+		query = 'SELECT id FROM wikipedia WHERE version = :version;'
+		params = {'version': version}
+
+		result = db.execute(query, params).fetchone()
+
+		if result is not None:
+			return int(result[0])
+		else:
+			return None
+
+# Pobieranie danych zespołu
+def get_team_data(codename: str, championship_id: int) -> dict[str, any] | None:
+	db = connect_db()
+
+	wiki_id = get_wiki_id('plwiki')
+
+	with db:
+		query = '''
+			SELECT short_link, long_link, t.nationality, t.car_number, team_id
+			FROM team_wikipedia tw
+			JOIN team t
+			ON t.id = tw.team_id
+			WHERE t.codename = :codename
+			AND t.championship_id = :championship_id
+			AND wikipedia_id = :wikipedia_id;
+		'''
+		params = {
+			'codename': codename,
+			'championship_id': championship_id,
+			'wikipedia_id': wiki_id
+		}
+
+		result = db.execute(query, params).fetchone()
+
+		if result is None:
+			return None
+		else:
+			query = 'UPDATE team SET last_used = CURRENT_TIMESTAMP WHERE id = :team_id;'
+			params = {'team_id': int(result[4])}
+
+			db.execute(query, params)
+
+			return {
+				'short_link': result[0],
+				'long_link': result[1],
+				'nationality': result[2],
+				'car_number': int(result[3])
+			}
+
+# Pobieranie danych kierowcy
+def get_driver_data(codename: str) -> dict[str, any] | None:
+	db = connect_db()
+
+	wiki_id = get_wiki_id('plwiki')
+
+	with db:
+		query = '''
+			SELECT short_link, long_link, d.nationality, driver_id
+			FROM driver_wikipedia dw
+			JOIN driver d
+			ON d.id = dw.driver_id
+			WHERE d.codename = :codename
+			AND wikipedia_id = :wikipedia_id;
+		'''
+		params = {
+			'codename': codename,
+			'wikipedia_id': wiki_id
+		}
+
+		result = db.execute(query, params).fetchone()
+
+		if result is None:
+			return None
+		else:
+			query = 'UPDATE driver SET last_used = CURRENT_TIMESTAMP WHERE id = :driver_id;'
+
+			db.execute(query, {'driver_id': int(result[3])})
+
+			return {
+				'short_link': result[0],
+				'long_link': result[1],
+				'nationality': result[2]
+			}
+
+# Pobieranie linku do artykułu z autem
+def get_car_link(codename: str) -> str | None:
+	db = connect_db()
+
+	wiki_id = get_wiki_id('plwiki')
+
+	with db:
+		query = '''
+			SELECT link, car_id
+			FROM car_wikipedia cw
+			JOIN car c
+			ON c.id = cw.car_id
+			WHERE c.codename = :codename
+			AND wikipedia_id = :wikipedia_id;
+		'''
+		params = {'codename': codename, 'wikipedia_id': wiki_id}
+
+		result = db.execute(query, params).fetchone()
+
+		if result is None:
+			return None
+		else:
+			query = 'UPDATE car SET last_used = CURRENT_TIMESTAMP WHERE id = :car_id;'
+
+			db.execute(query, {'car_id': result[1]})
+
+			return result[0]
+
+# Pobranie listy serii wyścigowych wraz z ich organizatorami
+def get_series() -> dict[int, Series]:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT c.id, c.name, o.name
+			FROM championship c
+			JOIN organiser o
+			ON o.id = c.organiser_id;
+		'''
+
+		result = db.execute(query).fetchall()
+
+		if result is None:
+			return []
+		else:
+			i = 1
+			series: dict[int, Series] = dict()
+			
+			for s in result:
+				series.update({i: Series(int(s[0]), s[1], Organiser[str(s[2]).upper()])})
+				i += 1
+			
+			return series
+
+# Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników wyścigu
+def print_race_table(series: Series, filename: str) -> None:
+	table_header = [
+		'{| class="wikitable" style="font-size:95%;"',
+		'|+ Klasyfikacja wstępna/ostateczna',
+		'! {{Tooltip|Poz.|Pozycja}}',
+		'! Klasa',
+		'! Zespół',
+		'! Kierowcy',
+		'! Samochód',
+		'! Opony',
+		'! {{Tooltip|Okr.|Okrążenia}}',
+		'! Czas/Strata'
+	]
+
+	print('\nKod tabeli:')
+	print('\n'.join(table_header))
+	
 	with open(filename, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 		class_winners = set()
-
-		print('{| class="wikitable" style="font-size:95%;"')
-		print('|+ Klasyfikacja<ref>{{Cytuj | url =  | tytuł =  | data =  | opublikowany =  | język = en | data dostępu =  | archiwum =  | zarchiwizowano = }}</ref>')
-		print('! {{Tooltip|Poz.|Pozycja}}')
-		print('! Klasa')
-		print('! Zespół')
-		print('! Kierowcy')
-		print('! Samochód')
-		print('! Opony')
-		print('! {{Tooltip|Okr.|Okrążenia}}')
-		print('! Czas/Strata')
+		statuses = set()
 
 		for row in csv_reader:
-			category = row["CLASS"]
+			status = row['STATUS']
+
+			if status != 'Classified' and status not in statuses:
+				statuses.add(status)
+				print('|-')
+				print(f'! colspan="8" | {status}')
+
+			category = row['CLASS']
 			
+			# Pogrubienie wierszy ze zwycięzcami klas
 			if category not in class_winners:
 				print('|- style="font-weight: bold;')
 				class_winners.add(category)
 			else:
 				print('|-')
 			
-			print(f'! {row["POSITION"]}')
+			# Pozycja zajęta w klasyfikacji ogólen wyścigu
+			if status == 'Classified':
+				print(f'! {row['POSITION']}')
+			else:
+				print('!')
 
-			if row["GROUP"] != "":
-				print(f'| align="center" | {category}<br />{row["GROUP"]}')
+			# Wypisanie klasy z ewentualną dodatkową grupą (np. Pro/Am)
+			if row['GROUP'] != '':
+				print(f'| align="center" | {category}<br />{row['GROUP']}')
 			else:
 				print(f'| align="center" | {category}')
 
-			try:
-				team_data = teams['#%s %s' % (row["NUMBER"], row["TEAM"])]
-				print(f'| {{{{Flaga|{team_data["country"]}}}}} {team_data["link"]}')
-			except KeyError:
-				print(f'| {{{{Flaga|}}}} #{row["NUMBER"]} [[{row["TEAM"]}]]')
+			# Wypisanie nazwy zespołu, numeru auta i odpowiedniej flagi
+			team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
 
-			try:
-				driver1_data = None
-				if organiser == Organiser.ACO:
-					driver1_data = drivers[row["DRIVER_1"].lower()]
-				elif organiser == Organiser.IMSA:
-					driver1_name = row["DRIVER1_FIRSTNAME"] + " " + row["DRIVER1_SECONDNAME"]
-					driver1_data = drivers[driver1_name.lower()]
-
-				driver1 = '{{Flaga|%s}} %s' % (
-					driver1_data["country"],
-					driver1_data["link"]
-				)
-			except KeyError:
-				driver1_name = None
-				if organiser == Organiser.ACO:
-					driver1_name = row["DRIVER_1"].split(" ", 1)
-				elif organiser == Organiser.IMSA:
-					driver1_name = [row["DRIVER1_FIRSTNAME"], row["DRIVER1_SECONDNAME"]]
-
-				driver1 = '{{Flaga|}} [[%s %s]]' % (
-					driver1_name[0],
-					driver1_name[1].capitalize()
-				)
-
-			try:
-				driver2_data = None
-				if organiser == Organiser.ACO:
-					driver2_data = drivers[row["DRIVER_2"].lower()]
-				elif organiser == Organiser.IMSA:
-					driver2_name = row["DRIVER2_FIRSTNAME"] + " " + row["DRIVER2_SECONDNAME"]
-					driver2_data = drivers[driver2_name.lower()]
-
-				driver2 = '<br />{{Flaga|%s}} %s' % (
-					driver2_data["country"],
-					driver2_data["link"]
-				)
-			except KeyError:
-				driver2_name = None
-				if organiser == Organiser.ACO:
-					driver2_name = row["DRIVER_2"].split(" ", 1)
-				elif organiser == Organiser.IMSA:
-					driver2_name = [row["DRIVER2_FIRSTNAME"], row["DRIVER2_SECONDNAME"]]
-
-				driver2 = '<br />{{Flaga|}} [[%s %s]]' % (
-					driver2_name[0],
-					driver2_name[1].capitalize()
-				)
-
-			if organiser == Organiser.ACO and row["DRIVER_3"] != "":
-				try:
-					driver3_data = drivers[row["DRIVER_3"].lower()]
-					driver3 = '<br />{{Flaga|%s}} %s' % (
-						driver3_data["country"],
-						driver3_data["link"]
-					)
-				except KeyError:
-					driver3_name = row["DRIVER_3"].split(" ", 1)
-					driver3 = '<br />{{Flaga|}} [[%s %s]]' % (
-						driver3_name[0],
-						driver3_name[1].capitalize()
-					)
-					
-				print(f'| {driver1 + driver2 + driver3}')
-			elif organiser == Organiser.IMSA and row["DRIVER3_FIRSTNAME"] != "":
-				try:
-					driver3_name = row["DRIVER3_FIRSTNAME"] + " " + row["DRIVER3_SECONDNAME"]
-					driver3_data = drivers[driver3_name.lower()]
-					driver3 = '<br />{{Flaga|%s}} %s' % (
-						driver3_data["country"],
-						driver3_data["link"]
-					)
-				except KeyError:
-					driver3 = '<br />{{Flaga|}} [[%s %s]]' % (
-						row["DRIVER3_FIRSTNAME"],
-						row["DRIVER3_SECONDNAME"]
-					)
-
-				print(f'| {driver1 + driver2 + driver3}')
+			if team_data is None:
+				print(f'| {{{{Flaga|?}}}} #{row["NUMBER"]} [[{row["TEAM"]}]]')
 			else:
-				print(f'| {driver1 + driver2}')
+				if team_data['long_link'] != '':
+					print('| {{Flaga|%s}} #%d %s' % (
+						team_data['nationality'],
+						team_data['car_number'],
+						team_data['long_link']
+					))
+				else:
+					print('| {{Flaga|%s}} #%d %s' % (
+						team_data['nationality'],
+						team_data['car_number'],
+						team_data['short_link']
+					))
 
-			try:
-				car = cars[row["VEHICLE"]]
-			except KeyError:
-				car = '[[%s]]' % (row["VEHICLE"])
+			# Wypisanie listy kierowców z flagami
+			drivers: list[dict[str, any]] = list()
+
+			# Składy są najwyżej czteroosobowe
+			for x in range(1, 5):
+				driver_data = None
+				
+				if series.organiser == Organiser.ACO and row[f'DRIVER_{x}'] != '':
+					driver_data = get_driver_data(row[f'DRIVER_{x}'].lower())
+					if driver_data is None:
+						driver_name = row[f'DRIVER_{x}'].split(" ", 1)
+						driver_data = {
+							'short_link': f'[[{driver_name[0]} {driver_name[1].capitalize()}]]',
+							'long_link': '',
+							'nationality': '?'
+						}
+				elif series.organiser == Organiser.IMSA and row[f'DRIVER{x}_FIRSTNAME'] != '':
+					codename = row[f'DRIVER{x}_FIRSTNAME'] + " " + row[f'DRIVER{x}_SECONDNAME'].capitalize()
+					driver_data = get_driver_data(codename.lower())
+					if driver_data is None:
+						driver_data = {
+							'short_link': f'[[{codename}]]',
+							'long_link': '',
+							'nationality': '?'
+						}
+				
+				if driver_data is not None:
+					drivers.append(driver_data)
+
+			for x in range(0, len(drivers)):
+				if x == 0:
+					print('| {{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['long_link'] if drivers[x]['long_link'] != '' else drivers[x]['short_link']
+					), end='')
+				elif x == len(drivers) - 1:
+					print('<br />{{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['long_link'] if drivers[x]['long_link'] != '' else drivers[x]['short_link']
+					))
+				else:
+					print('<br />{{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['long_link'] if drivers[x]['long_link'] != '' else drivers[x]['short_link']
+					), end='')
+
+			# Wypisanie auta
+			car = get_car_link(row['VEHICLE'])
+
+			if car is None:
+				car = f'[[{row["VEHICLE"]}]]'
 
 			print(f'| {car}')
 
-			if organiser == Organiser.ACO:
-				tyres = '{{Opony|%s}}' % (row["TYRES"])
-			elif organiser == Organiser.IMSA:
-				tyres = '{{Opony|%s}}' % (row["TIRES"])
+			# Wypisanie opon
+			tyre_oem = row['TYRES'] if 'TYRES' in row else row['TIRES']
 
-			print(f'| align="center" | {tyres}')
+			print('| align="center" | {{Opony|%s}}' % (tyre_oem))
 
+			# Wypisanie liczby okrążeń
 			print(f'| align="center" | {row["LAPS"]}')
 			
-			if row["STATUS"] == 'Classified':
+			# Wypisanie czasu wyścigu/straty/statusu
+			if status == 'Classified':
+				# Wypisanie straty czasowej/liczby okrążeń
 				if line_count > 0:
-					gap = row["GAP_FIRST"].replace('.',',').replace('\'',':')
+					gap = row['GAP_FIRST'].replace('.',',').replace('\'',':')
 
-					if gap.startswith("+"):
-						print(f'| {gap}')
-					else:
-						print(f'| +{gap}')
+					gap = gap if gap.startswith('+') else f'+{gap}'
 
+					print(f'| {gap}')
+				# Wypisanie czasu wyścigu u zwycięzcy
 				elif line_count == 0:
-					total_time = row["TOTAL_TIME"].replace('.',',').replace('\'',':')
+					total_time = row['TOTAL_TIME'].replace('.',',').replace('\'',':')
 					print(f'| align="center" | {total_time}')
 			else:
-				print(f'| {row["STATUS"]}')
+				# Wypisanie pustej komórki jeśli nieklasyfikowany, zdyskwalifikowany itp.
+				print('|')
 
 			line_count += 1
 		
 		print('|-')
 		print('|}')
 
-		print(f'Przetworzone linie: {line_count}')
+		print(f'\nPrzetworzone linie: {line_count}')
 
 # Odczyanie pliku .CSV i wypisanie kodu tabeli dla wyników kwalifikacji
-def print_quali_table(organiser, filename):
+def print_quali_table(series: Series, filename: str) -> None:
+	table_header = [
+		'{| class="wikitable sortable" style="font-size: 90%;"',
+		'! {{Tooltip|Poz.|Pozycja}}',
+		'! class="unsortable" | Klasa',
+		'! class="unsortable" | Zespół',
+		'! class="unsortable" | Kierowca',
+		'! class="unsortable" | Czas',
+		'! class="unsortable" | Strata',
+		'! {{Tooltip|Poz. s.|Pozycja startowa}}'
+	]
+
+	print('\nKod tabeli:')
+	print('\n'.join(table_header))
+
 	with open(filename, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 		class_polesitters = set()
 
-		print('{| class="wikitable sortable" style="font-size: 90%;"')
-		print('! {{Tooltip|Poz.|Pozycja}}')
-		print('! class="unsortable" | Klasa')
-		print('! class="unsortable" | Zespół')
-		print('! class="unsortable" | Kierowca')
-		print('! class="unsortable" | Czas')
-		print('! class="unsortable" | Strata')
-		print('! {{Tooltip|Poz. s.|Pozycja startowa}}')
-
 		for row in csv_reader:
-			position = None
-			category = row["CLASS"]
+			category = row['CLASS']
 
+			# Pogrubienie wierszy z zdobywcami pole position w klasach
 			if category not in class_polesitters:
 				print('|- style="font-weight: bold;"')
 				class_polesitters.add(category)
 			else:
 				print('|-')
 			
-			try:
-				position = row["POSITION"]
-				print(f'! {position}')
-			except KeyError:
-				try:
-					position = row["POS"]
-					print(f'! {position}')
-				except:
-					position = ''
-					print(f'!')
+			# Wypisanie pozycji, organizatorzy niejednolicie używają nazwy kolumny z pozycją
+			position = row['POSITION'] if 'POSITION' in row else row['POS']
 
+			# Wypisanie klasy
 			print(f'| align="center" | {category}')
 
-			try:
-				teams_data = teams['#%s %s' % (row["NUMBER"], row["TEAM"])]
-				print(f'| {{{{Flaga|{teams_data["country"]}}}}} {teams_data["link"]}')
-			except:
-				print(f'| {{{{Flaga|}}}} #{row["NUMBER"]} [[{row["TEAM"]}]]')
+			# Wypisanie nazwy zespołu z numerem samochodu i flagą
+			team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
 
-			try:
-				driver1_name = '%s %s' % (
-					row["DRIVER1_FIRSTNAME"].lower(),
-					row["DRIVER1_SECONDNAME"].lower()
-				)
-				
-				driver1_data = drivers['%s' % (driver1_name)]
-				
-				driver1 = '{{Flaga|%s}} %s' % (
-					driver1_data["country"],
-					driver1_data["link"]
-				)
-			except:
-				driver1 = '{{Flaga|%s}} %s %s' % (
-					row["DRIVER1_COUNTRY"],
-					row["DRIVER1_FIRSTNAME"].capitalize(),
-					row["DRIVER1_SECONDNAME"].capitalize()
-				)
-			
-			try:
-				driver2_name = '%s %s' % (
-					row["DRIVER2_FIRSTNAME"].lower(),
-					row["DRIVER2_SECONDNAME"].lower()
-				)
-				
-				driver2_data = drivers['%s' % (driver2_name)]
-				
-				driver2 = '<br />{{Flaga|%s}} %s' % (
-					driver2_data["country"],
-					driver2_data["link"]
-				)
-			except:
-				driver2 = '<br />{{Flaga|%s}} %s %s' % (
-					row["DRIVER2_COUNTRY"],
-					row["DRIVER2_FIRSTNAME"].capitalize(),
-					row["DRIVER2_SECONDNAME"].capitalize()
-				)
-				
-			if row["DRIVER3_COUNTRY"] != "":
-				try:
-					driver3_name = '%s %s' % (
-						row["DRIVER3_FIRSTNAME"].lower(),
-						row["DRIVER3_SECONDNAME"].lower()
-					)
-					
-					driver3_data = drivers['%s' % (driver3_name)]
-					
-					driver3 = '<br />{{Flaga|%s}} %s' % (
-						driver3_data["country"],
-						driver3_data["link"]
-					)
-				except:
-					driver3 = '<br />{{Flaga|%s}} %s %s' % (
-						row["DRIVER3_COUNTRY"],
-						row["DRIVER3_FIRSTNAME"].capitalize(),
-						row["DRIVER3_SECONDNAME"].capitalize()
-					)
-
-				print(f'| {driver1 + driver2 + driver3}')
+			if team_data is not None:
+				print('| {{Flaga|%s}} #%d %s' % (
+					team_data['nationality'],
+					int(team_data['car_number']),
+					team_data['short_link']
+				))
 			else:
-				print(f'| {driver1 + driver2}')
+				print('| {{Flaga|?}} #%d [[%s]]' % (
+					int(row['NUMBER']),
+					row['TEAM']
+				))
+			
+			drivers: list[dict[str, any]] = list()
 
-			if row["TIME"] != "":
-				time = row["TIME"].replace('.',',')
+			# Maksymalnie składy czteroosobowe
+			for x in range(1, 5):
+				if row[f'DRIVER{x}_FIRSTNAME'] is None or row[f'DRIVER{x}_FIRSTNAME'] == '':
+					print(row[f'DRIVER{x}_FIRSTNAME'] is None)
+					print(row[f'DRIVER{x}_FIRSTNAME'] == '')
+					continue
+
+				driver_name = '%s %s' % (
+					row[f'DRIVER{x}_FIRSTNAME'].capitalize(),
+					row[f'DRIVER{x}_SECONDNAME'].capitalize()
+				)
+
+				driver_data = get_driver_data(driver_name.lower())
+
+				if driver_data is None:
+					driver_data = {
+						'short_link': driver_name,
+						'long_link': '',
+						'nationality': row[f'DRIVER{x}_COUNTRY']
+					}
+				
+				if driver_data is not None:
+					drivers.append(driver_data)
+
+			# Wypisanie kierowców
+			for x in range(0, len(drivers)):
+				if x == 0:
+					print('| {{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['short_link']
+					), end='')
+				elif x == len(drivers) - 1:
+					print('<br />{{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['short_link']
+					))
+				else:
+					print('<br />{{Flaga|%s}} %s' % (
+						drivers[x]['nationality'],
+						drivers[x]['short_link']
+					), end='')
+
+			# Wypisanie uzyskanego czasu i straty
+			time = row['TIME']
+			if time != '':
+				time = time.replace('.',',')
 				print(f'| {time}')
 				
-				gap = row["GAP_FIRST"].replace('.',',').replace('\'',':')
+				gap = row['GAP_FIRST'].replace('.',',').replace('\'',':')
+
+				gap = gap if gap.startswith('+') else f'+{gap}'
 				
 				if line_count > 0:
-					if gap.startswith('+'):
-						print(f'| {gap}')
-					else:
-						print(f'| +{gap}')
-
-				elif line_count == 0:
+					print(f'| {gap}')
+				else:
+					# Zdobywca pole position w klasyfikacji ogólnej ma w tej komórce
+					# myślnik zamiast straty
 					print('| align="center" | —')
-
+			# W razie braku czasu zostaje wypisany myślnik w komórkach dla czasu i straty
 			else:
-				print("| colspan=\"2\" align=\"center\" | —")
+				print('| colspan="2" align="center" | —')
 
+			# Wypisanie pozycji startowej, która jest taka sama jak zajęta pozycja,
+			# chyba że lista z ustawieniem na starcie mówi inaczej
 			print(f'! {position}')
 
 			line_count += 1
 
 		print('|-')
-		print('! colspan="7" | Źródła<ref>{{Cytuj | url =  | tytuł =  | data =  | opublikowany =  | język = en | data dostępu =  | archiwum =  | zarchiwizowano = }}</ref><ref>{{Cytuj | url =  | tytuł =  | data =  | opublikowany = fiawec.alkamelsystems.com | język = en | data dostępu =  | archiwum =  | zarchiwizowano = }}</ref>')
+		print('! colspan="7" | Źródła')
 		print('|-')
 		print('|}')
 
-		print(f'Przetworzone linie: {line_count}')
+		print(f'\nPrzetworzone linie: {line_count}')
 
 # Odczyanie pliku .CSV i wypisanie kodu fragmentu tabeli dla wyników sesji treningowych
-def print_fp_table(organiser, filename):
+def print_fp_table(series: Series, filename: str) -> None:
+	table_header = [
+		'{| class="wikitable" style="font-size:95%"',
+		'! Klasa',
+		'! Zespół',
+		'! Samochód',
+		'! Czas',
+		'! {{Tooltip|Okr.|Liczba pokonanych okrążeń}}',
+		'|-',
+		'! colspan="5" | Sesja<!--źródło-->'
+	]
+
+	print('\nKod tabeli:')
+	print('\n'.join(table_header))
+	
 	with open(filename, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 		classes = set()
 
-		print('{| class="wikitable" style="font-size:95%"')
-		print('|-')
-		print('! Klasa')
-		print('! Zespół')
-		print('! Samochód')
-		print('! Czas')
-		print('! {{Tooltip|Okr.|Liczba pokonanych okrążeń}}')
-		print('|-')
-		print('! colspan="5" | Sesja<!--<ref>{{Cytuj | url =  | tytuł =  | data =  | opublikowany =  | język = en | data dostępu =  | archiwum =  | zarchiwizowano = }}</ref>-->')
-
 		for row in csv_reader:
-			if row["CLASS"] not in classes:
-				classes.add(row["CLASS"])
+			if row['CLASS'] not in classes:
+				classes.add(row['CLASS'])
 
 				print('|-')
-	
-				print(f'! {row["CLASS"]}')
+				# Wypisanie nazwy klasy
+				print(f'! {row['CLASS']}')
 
-				try:
-					teams_data = teams['#%s %s' % (row["NUMBER"], row["TEAM"])]
-					print(f'| {{{{Flaga|{teams_data["country"]}}}}} {teams_data["link"]}')
-				except:
-					print(f'| #{row["NUMBER"]} [[{row["TEAM"]}]]')
+				# Wypisanie danych zespołu
+				team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
 
-				try:
-					car = cars[row["VEHICLE"]]
-				except KeyError:
-					car = '%s' % (row["VEHICLE"])
+				if team_data is not None:
+					print('| {{Flaga|%s}} #%d %s' % (
+						team_data['nationality'],
+						int(team_data['car_number']),
+						team_data['short_link']
+					))
+				else:
+					print('| {{Flaga|?}} #%d [[%s]]' % (
+						int(row['NUMBER']),
+						row['TEAM']
+					))
+
+				# Wypisanie auta
+				car = get_car_link(row['VEHICLE'])
+
+				if car is None:
+					car = f'[[{row["VEHICLE"]}]]'
 
 				print(f'| {car}')
 
-				if row["TIME"] != "":
-					time = row["TIME"].replace('.',',')
+				# Wypisanie czasu
+				if row['TIME'] != '':
+					time = row['TIME'].replace('.',',')
 					print(f'| {time}')
 				else:
 					print(f'|')
@@ -367,14 +530,14 @@ def print_fp_table(organiser, filename):
 		print('|-')
 		print('|}')
 
-		print(f'Przetworzone linie: {line_count}')
+		print(f'\nPrzetworzone linie: {line_count}')
 
 # Odczytanie ścieżki do pliku
-def read_csv_path():
+def read_csv_path() -> str:
 	text = ''
 
 	while True:
-		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
 		if not os.path.isfile(text):
 			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
@@ -386,61 +549,65 @@ def read_csv_path():
 			return text
 
 # Odczytanie sesji której wyniki zawiera plik
-def read_session():
+def read_session() -> Session:
 	num = 0
 
-	print('Wybierz sesję, która jest w podanym pliku .CSV:')
-	print('1. Treningowa/testowa')
-	print('2. Kwalifikacyjna')
-	print('3. Wyścig')
+	options = {
+		1: {'text': 'Treningowa/testowa', 'enum': Session.FP},
+		2: {'text': 'Kwalifikacyjna', 'enum': Session.QUALI},
+		3: {'text': 'Wyścig', 'enum': Session.RACE}
+	}
+
+	print('\nWybierz sesję, która jest w podanym pliku .CSV:')
 
 	while True:
+		for o in options:
+			print(f'{o}. {options[o]['text']}')
+
 		try:
 			num = int(input('Wybór: '))
 		except ValueError:
-			print('Podaj liczbę naturalną z przedziału 1-3')
+			print(f'Podaj liczbę naturalną z przedziału 1-{len(options)}\n')
 
-		if num == 1:
-			return Session.FP
-		elif num == 2:
-			return Session.QUALI
-		elif num == 3:
-			return Session.RACE
+		if num in options:
+			return options[num]['enum']
 		else:
-			print('Liczba musi być w przedziale 1-3')
+			print(f'Liczba musi być w przedziale 1-{len(options)}\n')
 
-# Odczytanie organizatora wyścigu, różni organizatorzy mogą inaczej nazywać kolumny w plikach .CSV
-def read_organiser():
-	num = 0
+# Odczytanie serii wyścigowej, różne serie mogą inaczej nazywać kolumny w plikach .CSV
+def read_series() -> Series:
+	num = None
 
-	print('Podaj organizatora wyścigu:')
-	print('1. ACO/FIA')
-	print('2. IMSA')
+	series: dict[int, Series] = get_series()
+
+	print('\nPodaj serię wyścigową, z której pochodzą dane:')
 
 	while True:
+		for s in series:
+			print(f'{s}. {series[s].name}')
 		try:
 			num = int(input('Wybór: '))
 		except ValueError:
-			print('Podaj liczbę naturalną z przedziału 1-2')
+			print(f'Podaj liczbę naturalną z przedziału 1-{len(series)}\n')
+			continue
 
-		if num == 1:
-			return Organiser.ACO
-		elif num == 2:
-			return Organiser.IMSA
+		if num in series.keys():
+			return series[num]
 		else:
-			print('Liczba musi być w przedziale 1-2')
+			print(f'Liczba musi być w przedziale 1-{len(series)}\n')
 
+# Główna funkcja skryptu
 def main():
 	file = read_csv_path()
 	session = read_session()
-	organiser = read_organiser()
+	series = read_series()
 
 	if session == Session.FP:
-		print_fp_table(organiser, file)
+		print_fp_table(series, file)
 	elif session == Session.QUALI:
-		print_quali_table(organiser, file)
+		print_quali_table(series, file)
 	elif session == Session.RACE:
-		print_race_table(organiser, file)
+		print_race_table(series, file)
 	else:
 		print('Typ sesji nieobsługiwany')
 
