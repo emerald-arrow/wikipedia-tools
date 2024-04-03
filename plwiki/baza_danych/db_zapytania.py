@@ -6,7 +6,7 @@ from db_kierowcy import Driver
 from db_zespoły import Team
 
 # Połączenie z bazą danych
-def connect_db():
+def connect_db() -> sqlite3.Connection:
     db_relative = '../../common/database.db'
     db_absolute = os.path.abspath(db_relative)
     
@@ -69,6 +69,24 @@ def get_wiki_id(version: str) -> int | None:
 	with db:
 		query = 'SELECT id FROM wikipedia WHERE version = :version'
 		params = {'version': version}
+
+		result = db.execute(query, params).fetchone()
+
+		if result is not None:
+			return int(result[0])
+		else:
+			return None
+
+def get_entity_type_id(entity_name: str) -> int | None:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT id
+			FROM entity_type
+			WHERE name = :name COLLATE NOCASE
+		'''
+		params = {'name': entity_name}
 
 		result = db.execute(query, params).fetchone()
 
@@ -185,10 +203,11 @@ def add_car(car: Car) -> bool:
 				return False
 
 # Dodawanie kierowcy do bazy danych, zwraca True jedynie w przypadku dodania zarówno kierowcy jak i linków
-def add_driver(driver: Driver) -> bool:
+def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
 	db = connect_db()
 
-	wiki_id = get_wiki_id('plwiki')
+	driver_id = None
+	exists = False
 
 	with db:
 		db.execute('BEGIN')
@@ -203,13 +222,44 @@ def add_driver(driver: Driver) -> bool:
 
 		result = db.execute(query, params).fetchone()
 
+		# Jeśli nie ma kierowcy w tabeli driver
 		if result is None:
+			# Dodanie kierowcy do tabeli entity
+			query = '''
+				INSERT INTO entity (type_id)
+				VALUES (:type_id)
+			'''
+
+			params = {'type_id': type_id}
+
+			try:
+				db.execute(query, params)
+			except sqlite3.OperationalError as e:
+				db.execute('ROLLBACK')
+				print('Błąd przy dodawaniu %s do bazy - %s' % (
+					driver.codename,
+					e
+				))
+				return False
+			
+			# Sprawdzenie id dodanego kierowcy
+			query = '''
+				SELECT MAX(id)
+				FROM entity
+				WHERE type_id = :type_id
+			'''
+
+			params = {'type_id': type_id}
+
+			driver_id = int(db.execute(query, params).fetchone()[0])
+
 			# Dodanie kierowcy do tabeli driver
 			query = '''
-				INSERT INTO driver (codename, nationality)
-				VALUES (:codename, :nationality)
+				INSERT INTO driver (id, codename, flag)
+				VALUES (:id, :codename, :nationality)
 			'''
 			params = {
+				'id': driver_id,
 				'codename': driver.codename,
 				'nationality': driver.nationality
 			}
@@ -223,97 +273,71 @@ def add_driver(driver: Driver) -> bool:
 					e
 				))
 				return False
-		
-			# Sprawdzenie id dodanego kierowcy
-			query = '''
-				SELECT id
-				FROM driver
-				WHERE codename = :codename;
-			'''
-			params = {'codename': driver.codename}
-
-			result = db.execute(query, params).fetchone()
+		else:
+			exists = True
+			# Czy dane o kierowcy są w tabeli driver_wikipedia
 			driver_id = result[0]
 
-			# Dodanie linku/linków w tabeli driver_wikipedia
 			query = '''
-				INSERT INTO driver_wikipedia (wikipedia_id, driver_id, short_link, long_link)
-				VALUES (:wikipedia_id, :driver_id, :short_link, :long_link);
-			'''
-			params = {
-				'wikipedia_id': wiki_id,
-				'driver_id': driver_id,
-				'short_link': driver.short_link,
-				'long_link': driver.long_link
-			}
-
-			try:
-				db.execute(query, params)
-			except sqlite3.OperationalError as e:
-				db.execute('ROLLBACK')
-				print('Błąd przy dodawaniu %s do bazy - %s' % (
-					driver.codename,
-					e
-				))
-				return False
-
-			db.execute('COMMIT')
-			return True
-		else:
-			# Czy dane o kierowcy są w tabeli driver_wikipedia
-			query = '''
-				SELECT short_link
+				SELECT short_link, long_link
 				FROM driver_wikipedia
 				WHERE driver_id = :driver_id
 				AND wikipedia_id = :wikipedia_id;
 			'''
 			params = {
-				'driver_id': result[0],
+				'driver_id': driver_id,
 				'wikipedia_id': wiki_id
 			}
 
 			result = db.execute(query, params).fetchone()
-
-			if result is None:
-				# Dodanie linku/linków w tabeli driver_wikipedia
-				driver_id = result[0]
-				query = '''
-					INSERT INTO driver_wikipedia (wikipedia_id, driver_id, short_link, long_link)
-					VALUES (:wikipedia_id, :driver_id, :short_link, :long_link);
-				'''
-				params = {
-					'wikipedia_id': wiki_id,
-					'driver_id': driver_id,
-					'short_link': driver.short_link,
-					'long_link': driver.long_link
-				}
-
-				try:
-					db.execute(query, params)
-				except sqlite3.OperationalError as e:
-					db.execute('ROLLBACK')
-					print('Błąd przy dodawaniu %s do bazy - %s' % (
-						driver.codename,
-						e
-					))
-					return False
-		
-				db.execute('COMMIT')
-				return False
-
-			else:
+			
+			# Jeśli dane są w tabeli driver_wikipedia
+			if result is not None:
 				db.execute('ROLLBACK')
-				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: %s' % (
+				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: "%s", "%s"' % (
 					driver.codename,
-					result[0]
+					result[0],
+					result[1]
 				))
+
 				return False
+		
+		# Dodanie linków do tabeli driver_wikipedia
+		query = '''
+			INSERT INTO driver_wikipedia (wikipedia_id, driver_id, short_link, long_link)
+			VALUES (:wikipedia_id, :driver_id, :short_link, :long_link);
+		'''
+		params = {
+			'wikipedia_id': wiki_id,
+			'driver_id': driver_id,
+			'short_link': driver.short_link,
+			'long_link': driver.long_link
+		}
+
+		try:
+			db.execute(query, params)
+		except sqlite3.OperationalError as e:
+			db.execute('ROLLBACK')
+			print('Błąd przy dodawaniu %s do bazy - %s' % (
+				driver.codename,
+				e
+			))
+			return False
+
+		db.execute('COMMIT')
+
+		if exists:
+			print('%s - dodano linki do artykułów na polskiej Wikipedii' % (driver.codename))
+			return False
+		else:
+			return True
 
 # Dodawanie zespołu do bazy danych, zwraca True jedynie w przypadku dodania zarówno zespołu jak i linków
-def add_team(team: Team, championship_id: int) -> bool:
+def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bool:
 	db = connect_db()
 
-	wiki_id = get_wiki_id('plwiki')
+	team_id = None
+	exists = False
 
 	with db:
 		db.execute('BEGIN')
@@ -323,31 +347,28 @@ def add_team(team: Team, championship_id: int) -> bool:
 			SELECT id
 			FROM team
 			WHERE codename = :codename
-			AND nationality = :nationality
+			AND flag = :flag
 			AND car_number = :car_number
 			AND championship_id = :championship_id;
 		'''
 		params = {
 			'codename': team.codename,
-			'nationality': team.nationality,
+			'flag': team.nationality,
 			'car_number': team.car_number,
 			'championship_id': championship_id
 		}
 
 		result = db.execute(query, params).fetchone()
 
+		# Jeśli zespołu nie ma w tabeli team
 		if result is None:
-			# Dodanie zespołu do tabeli team
+			# Dodanie zespołu do tabeli entity
 			query = '''
-				INSERT INTO team (codename, nationality, car_number, championship_id)
-				VALUES (:codename, :nationality, :car_number, :championship_id)
+				INSERT INTO entity (type_id)
+				VALUES (:type_id)
 			'''
-			params = {
-				'codename': team.codename,
-				'nationality': team.nationality,
-				'car_number': team.car_number,
-				'championship_id': championship_id
-			}
+
+			params = {'type_id': type_id}
 
 			try:
 				db.execute(query, params)
@@ -358,36 +379,29 @@ def add_team(team: Team, championship_id: int) -> bool:
 					e
 				))
 				return False
-		
+			
 			# Sprawdzenie id dodanego zespołu
 			query = '''
-				SELECT id
-				FROM team
-				WHERE codename = :codename
-				AND nationality = :nationality
-				AND car_number = :car_number
-				AND championship_id = :championship_id;
+				SELECT MAX(id)
+				FROM entity
+				WHERE type_id = :type_id
+			'''
+
+			params = {'type_id': type_id}
+
+			team_id = int(db.execute(query, params).fetchone()[0])
+
+			# Dodanie zespołu do tabeli team
+			query = '''
+				INSERT INTO team (id, codename, flag, car_number, championship_id)
+				VALUES (:id, :codename, :flag, :car_number, :championship_id)
 			'''
 			params = {
+				'id': team_id,
 				'codename': team.codename,
-				'nationality': team.nationality,
+				'flag': team.nationality,
 				'car_number': team.car_number,
 				'championship_id': championship_id
-			}
-
-			result = db.execute(query, params).fetchone()
-			team_id = result[0]
-
-			# Dodanie linku/linków w tabeli team_wikipedia
-			query = '''
-				INSERT INTO team_wikipedia (wikipedia_id, team_id, short_link, long_link)
-				VALUES (:wikipedia_id, :team_id, :short_link, :long_link);
-			'''
-			params = {
-				'wikipedia_id': wiki_id,
-				'team_id': team_id,
-				'short_link': team.short_link,
-				'long_link': team.long_link
 			}
 
 			try:
@@ -399,56 +413,61 @@ def add_team(team: Team, championship_id: int) -> bool:
 					e
 				))
 				return False
-
-			db.execute('COMMIT')
-			return True
 		else:
+			exists = True
 			# Czy dane o zespole są w tabeli team_wikipedia
+			team_id = result[0]
+
 			query = '''
-				SELECT short_link
+				SELECT short_link, long_link
 				FROM team_wikipedia
 				WHERE team_id = :team_id
 				AND wikipedia_id = :wikipedia_id;
 			'''
 			params = {
-				'team_id': result[0],
+				'team_id': team_id,
 				'wikipedia_id': wiki_id
 			}
 
 			result = db.execute(query, params).fetchone()
 
-			if result is None:
-				# Dodanie linku/linków w tabeli team_wikipedia
-				team_id = result[0]
-				query = '''
-					INSERT INTO team_wikipedia (wikipedia_id, team_id, short_link, long_link)
-					VALUES (:wikipedia_id, :team_id, :short_link, :long_link);
-				'''
-				params = {
-					'wikipedia_id': wiki_id,
-					'team_id': team_id,
-					'short_link': team.short_link,
-					'long_link': team.long_link
-				}
-
-				try:
-					db.execute(query, params)
-				except sqlite3.OperationalError as e:
-					db.execute('ROLLBACK')
-					print('Błąd przy dodawaniu %s do bazy - %s' % (
-						team.codename,
-						e
-					))
-					return False
-		
-				print(f'Dla istniejącego zespołu {team.codename} dodano link do wikipedii.')
-				db.execute('COMMIT')
-				return False
-
-			else:
+			# Jeśli dane są w tabeli team_wikipedia
+			if result is not None:
 				db.execute('ROLLBACK')
-				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: %s' % (
+				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: "%s", "%s"' % (
 					team.codename,
-					result[0]
+					result[0],
+					result[1]
 				))
+
 				return False
+		
+		# Dodanie linku/linków w tabeli team_wikipedia
+		query = '''
+			INSERT INTO team_wikipedia (wikipedia_id, team_id, short_link, long_link)
+			VALUES (:wikipedia_id, :team_id, :short_link, :long_link);
+		'''
+		
+		params = {
+			'wikipedia_id': wiki_id,
+			'team_id': team_id,
+			'short_link': team.short_link,
+			'long_link': team.long_link
+		}
+
+		try:
+			db.execute(query, params)
+		except sqlite3.OperationalError as e:
+			db.execute('ROLLBACK')
+			print('Błąd przy dodawaniu %s do bazy - %s' % (
+				team.codename,
+				e
+			))
+			return False
+
+		db.execute('COMMIT')
+		if exists:
+			print('%s - dodano linki do artykułów na polskiej Wikipedii' % (team.codename))
+			return False
+		else:
+			return True
