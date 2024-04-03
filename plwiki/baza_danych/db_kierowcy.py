@@ -249,13 +249,27 @@ def read_drivers_csv(path: str) -> set[Driver]:
 # Zapisanie danych o kierowcach w bazie
 def driver_data_to_db_mode() -> None:
 	from db_zapytania import add_driver
+	from db_zapytania import get_wiki_id
+	from db_zapytania import get_entity_type_id
 
 	chosen_file = choose_drivers_csv_file()
 
 	drivers: set[Driver] = read_drivers_csv(chosen_file)
 
+	wiki_id: int | None = get_wiki_id('plwiki')
+
+	type_id: int | None = get_entity_type_id('driver')
+
+	if wiki_id is None:
+		print('W bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
+		return
+	
+	if type_id is None:
+		print('W bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
+		return
+
 	for driver in drivers:
-		if add_driver(driver):
+		if add_driver(driver, wiki_id, type_id):
 			print(f'{driver.codename} - dodano pomyślnie do bazy')
 
 # Wybór trybu pracy skryptu

@@ -57,7 +57,7 @@ def get_team_data(codename: str, championship_id: int) -> dict[str, any] | None:
 
 	with db:
 		query = '''
-			SELECT short_link, long_link, t.nationality, t.car_number, team_id
+			SELECT short_link, long_link, t.flag, t.car_number, team_id
 			FROM team_wikipedia tw
 			JOIN team t
 			ON t.id = tw.team_id
@@ -96,7 +96,7 @@ def get_driver_data(codename: str) -> dict[str, any] | None:
 
 	with db:
 		query = '''
-			SELECT short_link, long_link, d.nationality, driver_id
+			SELECT short_link, long_link, d.flag, driver_id
 			FROM driver_wikipedia dw
 			JOIN driver d
 			ON d.id = dw.driver_id

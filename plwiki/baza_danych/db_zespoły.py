@@ -283,6 +283,8 @@ def read_championship() -> int:
 # Zapisanie danych o zespołach w bazie
 def team_data_to_db_mode() -> None:
 	from db_zapytania import add_team
+	from db_zapytania import get_wiki_id
+	from db_zapytania import get_entity_type_id
 
 	chosen_file = choose_teams_csv_file()
 
@@ -290,8 +292,20 @@ def team_data_to_db_mode() -> None:
 
 	championship_id = read_championship()
 
+	wiki_id: int | None = get_wiki_id('plwiki')
+
+	type_id: int | None = get_entity_type_id('team')
+
+	if wiki_id is None:
+		print('W bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
+		return
+	
+	if type_id is None:
+		print('W bazie nie znaleziono typu zespołów. Nie można dodać zespołów do bazy.')
+		return
+
 	for team in teams:
-		if add_team(team, championship_id):
+		if add_team(team, championship_id, wiki_id, type_id):
 			print(f'{team.codename} - dodano pomyślnie do bazy')
 
 # Wybór trybu pracy skryptu
