@@ -35,7 +35,7 @@ class Driver:
 		return iter([self.codename, self.nationality, self.short_link, self.long_link])
 
 # Zapisanie danych o kierowcach do pliku .csv
-def write_drivers_csv(drivers: set[Driver]) -> None:
+def write_drivers_csv(drivers: list[Driver]) -> None:
 	from datetime import datetime
 	timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 	filename = f'kierowcy_{timestamp}.csv'
@@ -58,8 +58,8 @@ def write_drivers_csv(drivers: set[Driver]) -> None:
 	print(f'Do pliku {filename} zapisano dane o {len(drivers)} kierowcach')
 
 # Odczytanie kierowców i wypisanie ich w formacie do zapisania w pliku db.py
-def read_results_csv(file) -> set[Driver]:
-	drivers: set[Driver] = set()
+def read_results_csv(file) -> list[Driver]:
+	drivers: list[Driver] = list()
 
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -83,7 +83,7 @@ def read_results_csv(file) -> set[Driver]:
 						short_link=driver_short_link
 					)
 
-					drivers.add(driver)
+					drivers.append(driver)
 
 			line_count += 1
 
@@ -127,7 +127,7 @@ def read_results_csv_path() -> str:
 def driver_data_to_csv_mode() -> None:
 	path: str = read_results_csv_path()
 
-	drivers: set[Driver] = read_results_csv(path)
+	drivers: list[Driver] = read_results_csv(path)
 
 	write_drivers_csv(drivers)
 
@@ -222,8 +222,8 @@ def choose_drivers_csv_file() -> str:
 		return text
 
 # Odczytanie danych o kierowcach
-def read_drivers_csv(path: str) -> set[Driver]:
-	drivers: set[Driver] = set()
+def read_drivers_csv(path: str) -> list[Driver]:
+	drivers: list[Driver] = list()
 	
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
@@ -239,7 +239,7 @@ def read_drivers_csv(path: str) -> set[Driver]:
 				line_count += 1
 				continue
 
-			drivers.add(Driver(codename, nationality, short_link, long_link))
+			drivers.append(Driver(codename, nationality, short_link, long_link))
 			line_count += 1
 		
 		print(f'Przetworzone linie: {line_count}.\nLiczba znalezionych kierowców: {len(drivers)}.')
@@ -254,7 +254,7 @@ def driver_data_to_db_mode() -> None:
 
 	chosen_file = choose_drivers_csv_file()
 
-	drivers: set[Driver] = read_drivers_csv(chosen_file)
+	drivers: list[Driver] = read_drivers_csv(chosen_file)
 
 	wiki_id: int | None = get_wiki_id('plwiki')
 

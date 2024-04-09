@@ -44,7 +44,7 @@ class Team:
 			   self.short_link, self.long_link])
 
 # Zapisanie danych o zespołach do pliku .csv
-def write_drivers_csv(teams: set[Team]) -> None:
+def write_drivers_csv(teams: list[Team]) -> None:
 	from datetime import datetime
 	timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 	filename = f'zespoły_{timestamp}.csv'
@@ -67,8 +67,8 @@ def write_drivers_csv(teams: set[Team]) -> None:
 	print(f'Do pliku {filename} zapisano dane o {len(teams)} zespołach')
 
 # Odczytanie nazw zespołów i wypisanie ich w formacie do zapisania w pliku db.py
-def read_results_csv(file: str) -> set[Team]:
-	teams = set()
+def read_results_csv(file: str) -> list[Team]:
+	teams = list()
 
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		from db_zapytania import get_country_iso_alpha3
@@ -93,7 +93,7 @@ def read_results_csv(file: str) -> set[Team]:
 				short_link=team_short_link
 			)
 
-			teams.add(team)
+			teams.append(team)
 
 			line_count += 1
 
@@ -133,7 +133,7 @@ def read_results_csv_path() -> str:
 def team_data_to_csv_mode() -> None:
 	path: str = read_results_csv_path()
 
-	teams: set[Team] = read_results_csv(path)
+	teams: list[Team] = read_results_csv(path)
 
 	write_drivers_csv(teams)
 
@@ -229,8 +229,8 @@ def choose_teams_csv_file() -> str:
 		return text
 
 # Odczytanie danych o zespołach
-def read_teams_csv(path: str) -> set[Team]:
-	teams: set[Team] = set()
+def read_teams_csv(path: str) -> list[Team]:
+	teams: list[Team] = list()
 	
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
@@ -247,7 +247,7 @@ def read_teams_csv(path: str) -> set[Team]:
 				line_count += 1
 				continue
 
-			teams.add(Team(codename, nationality, int(car_number), short_link, long_link))
+			teams.append(Team(codename, nationality, int(car_number), short_link, long_link))
 			line_count += 1
 		
 		print(f'Przetworzone linie: {line_count}.\nLiczba znalezionych zespołów: {len(teams)}.')
@@ -288,7 +288,7 @@ def team_data_to_db_mode() -> None:
 
 	chosen_file = choose_teams_csv_file()
 
-	teams: set[Team] = read_teams_csv(chosen_file)
+	teams: list[Team] = read_teams_csv(chosen_file)
 
 	championship_id = read_championship()
 
