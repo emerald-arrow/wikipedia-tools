@@ -1,9 +1,7 @@
 import sqlite3
 import os
 
-from db_auta import Car
-from db_kierowcy import Driver
-from db_zespoły import Team
+from modele import Car, Colour, Driver, Team, Manufacturer, Classification
 
 # Połączenie z bazą danych
 def connect_db() -> sqlite3.Connection:
@@ -23,13 +21,10 @@ def get_country_iso_alpha3(code: int) -> str:
 
 		result = db.execute(query, params).fetchone()
 
-		if result is not None:
-			return result[0]
-		else:
-			return '?'
+		return '?' if result is None else result[0]
 
 # Pobieranie serii wyścigowych
-def get_championships() -> list[dict[str, any]]:
+def get_championships() -> list[dict[str, int | str]]:
 	championships: list[dict[str, any]] = []
 
 	db = connect_db()
@@ -72,10 +67,7 @@ def get_wiki_id(version: str) -> int | None:
 
 		result = db.execute(query, params).fetchone()
 
-		if result is not None:
-			return int(result[0])
-		else:
-			return None
+		return None if result is None else int(result[0])
 
 def get_entity_type_id(entity_name: str) -> int | None:
 	db = connect_db()
@@ -90,10 +82,142 @@ def get_entity_type_id(entity_name: str) -> int | None:
 
 		result = db.execute(query, params).fetchone()
 
+		return None if result is None else int(result[0])
+
+# Pobranie wszystkich klasyfikacji danej serii
+def get_classifications_by_championship_id(championship_id: int) -> list[Classification]:
+	db = connect_db()
+	classifications: list[Classification] = []
+
+	with db:
+		query = '''
+			SELECT id, name
+			FROM classification
+			WHERE championship_id = :ch_id
+		'''
+		params = {'ch_id': championship_id}
+
+		result = db.execute(query, params).fetchall()
+
 		if result is not None:
-			return int(result[0])
-		else:
-			return None
+			for r in result:
+				classifications.append(Classification(int(r[0]), r[1], championship_id))
+		
+		return classifications
+
+# Sprawdzenie czy numer rundy jest już w klasyfikacji
+def check_round_number_in_classification(classification_id: int, round_number: int) -> bool:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT EXISTS(
+				SELECT 1
+				FROM classification_point
+				WHERE classification_id = :cl_id
+				AND round = :round_num
+			)
+		'''
+		params = {'cl_id': classification_id, 'round_num': round_number}
+
+		result = db.execute(query, params).fetchone()
+
+		return False if result is None else bool(result[0])
+
+# Sprawdzenie czy zespół/kierowca może punktować w danej klasyfikacji
+def check_classification_eligibility(classification_id: int, test_id: int) -> bool:
+	db = connect_db()
+
+	with db:
+		# Jeśli jest w tej tabeli to nie może
+		query = '''
+			SELECT EXISTS(
+				SELECT 1
+				FROM classification_ineligible
+				WHERE classification_id = :c_id
+				AND entity_id = :e_id
+			)
+		'''
+		params = {'c_id': classification_id, 'e_id': test_id}
+
+		result = db.execute(query, params).fetchone()
+
+		return True if result is None else bool(not result[0])
+
+# Pobieranie id zespołu i czy może on punktować
+def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> tuple[int | None, bool | None]:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT id, points_eligible
+			FROM team
+			WHERE codename = :codename
+			AND championship_id = :c_id;
+		'''
+		params = {'codename': codename, 'c_id': championship_id}
+
+		result = db.execute(query, params).fetchone()
+
+		return (None, None) if result is None else (int(result[0]), bool(result[1]))
+
+# Pobieranie danych kierowcy przy użyciu codename
+def get_driver_by_codename(codename: str) -> dict[str, int | str] | None:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT d.flag, dw.short_link, d.id
+			FROM driver d
+			JOIN driver_wikipedia dw
+			ON d.id = dw.driver_id
+			WHERE codename = :codename;
+		'''
+		params = {'codename': codename}
+
+		result = db.execute(query, params).fetchone()
+
+		return None if result is None else {'id': result[2], 'flag': result[0], 'link': result[1]}
+
+# Pobranie wszystkich producentów
+def get_manufacturers() -> list[Manufacturer]:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT id, codename, flag
+			FROM manufacturer
+		'''
+
+		result = db.execute(query).fetchall()
+
+		manufacturers = list()
+
+		if result is not None:
+			for r in result:
+				manufacturers.append(Manufacturer(r[0], r[1], r[2]))
+		
+		return manufacturers
+
+# Pobieranie styli kolorowania wyników
+def get_colours() -> list[Colour]:
+	db = connect_db()
+
+	with db:
+		query = '''
+			SELECT id, status
+			FROM bg_colour
+		'''
+
+		result = db.execute(query).fetchall()
+
+		colours = []
+
+		if result is not None:
+			for r in result:
+				colours.append(Colour(r[0], r[1]))
+		
+		return colours
 
 # Dodawanie auta do bazy danych, zwraca True jedynie w przypadku dodania zarówno auta jak i linku
 def add_car(car: Car) -> bool:
@@ -471,3 +595,14 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bo
 			return False
 		else:
 			return True
+
+# Dodanie wyniku do bazy danych
+def add_score(classification_id: int, entity_id: int, colour_id: int,
+			  position: int, points: int, pole_position: bool,
+			  round_number: int) -> bool:
+	db = connect_db()
+
+	print(locals())
+
+	# with db:
+	# 	db.execute('BEGIN')
