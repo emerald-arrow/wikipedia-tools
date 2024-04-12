@@ -7,34 +7,12 @@ import os
 import csv
 import re
 
-from datetime import datetime
-
-# Klasa zawierająca potrzebne dane do zapisania auta w bazie
-class Car:
-	def __init__(self, codename: str, link: str) -> None:
-		self.codename = codename
-		self.link = link
-	
-	def __repr__(self) -> str:
-		return f'{self.codename},{self.link}'
-
-	def __eq__(self, other: object) -> bool:
-		if isinstance(other, Car):
-			return (
-				self.codename == other.codename and
-				self.link == other.link
-			)
-		else:
-			return False
-	
-	def __hash__(self) -> int:
-		return hash(self.__repr__())
-	
-	def __iter__(self) -> iter:
-		return iter([self.codename, self.link])
+from modele import Car
 
 # Zapisanie nazw samochodów do pliku .csv
 def write_cars_csv(cars: set[Car]) -> None:
+	from datetime import datetime
+	
 	timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 	filename = f'auta_{timestamp}.csv'
 
