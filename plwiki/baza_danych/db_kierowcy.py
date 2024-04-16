@@ -32,7 +32,7 @@ def write_drivers_csv(drivers: list[Driver]) -> None:
 	
 	print(f'Do pliku {filename} zapisano dane o {len(drivers)} kierowcach')
 
-# Odczytanie kierowców i wypisanie ich w formacie do zapisania w pliku db.py
+# Odczytanie danych o kierowcach kierowców z pliku zawierającego wyniki
 def read_results_csv(file) -> list[Driver]:
 	drivers: list[Driver] = list()
 
@@ -178,8 +178,6 @@ def choose_drivers_csv_file() -> str:
 			else:
 				print('Podaj liczbę 1 lub 2.')
 				continue
-	
-	text = ''
 
 	while True:
 		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o kierowcach:\n')
@@ -230,6 +228,9 @@ def driver_data_to_db_mode() -> None:
 	chosen_file = choose_drivers_csv_file()
 
 	drivers: list[Driver] = read_drivers_csv(chosen_file)
+
+	if len(drivers) == 0:
+		return
 
 	wiki_id: int | None = get_wiki_id('plwiki')
 

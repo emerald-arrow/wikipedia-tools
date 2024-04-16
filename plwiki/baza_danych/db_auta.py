@@ -66,8 +66,6 @@ def verify_results_csv(path: str) -> bool:
 
 # Odczytanie ścieżki do pliku csv zawierającego wyniki
 def read_path_to_results_csv() -> str:
-	text = ''
-
 	while True:
 		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
@@ -159,8 +157,6 @@ def choose_car_csv_file() -> str:
 				print('Podaj liczbę 1 lub 2.')
 				continue
 	
-	text = ''
-
 	while True:
 		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o autach:\n')
 
@@ -202,15 +198,23 @@ def read_cars_csv(path: str) -> set[Car]:
 # Zapisanie danych o autach w bazie
 def car_data_to_db_mode() -> None:
 	from db_zapytania import add_car
+	from db_zapytania import get_wiki_id
 	
 	chosen_file: str = choose_car_csv_file()
 
 	cars: set[Car] = read_cars_csv(chosen_file)
 
+	if len(cars) == 0:
+		return
+
+	plwiki_id: int | None  = get_wiki_id('plwiki')
+
+	if plwiki_id is None:
+		print('Nie znaleziono id polskiej Wikipedii w bazie danych. Nie można rozpocząć dodawania danych do bazy danych.')
+		return
+
 	for car in cars:
-		if add_car(car):
-			print(f'{car.codename} dodano pomyślnie do bazy')
-	
+		add_car(car, plwiki_id)	
 
 # Wybór trybu pracy skryptu
 def choose_mode() -> None:
@@ -226,18 +230,22 @@ def choose_mode() -> None:
 		print(f'{o}. {options[o]}')
 
 	while True:
-		text = input('Wybór: ')
+		try:
+			num = int(input('Wybór: '))
+		except ValueError:
+			print('Podaj liczbę między 1 a 3.')
+			continue
 
-		if text not in options:
+		if num not in options:
 			print('Wybór spoza powyższej listy, spróbuj ponownie.')
 			continue
-		elif text == '1':
+		elif num == 1:
 			car_data_to_csv_mode()
 			break
-		elif text == '2':
+		elif num == 2:
 			car_data_to_db_mode()
 			break
-		elif text == '3':
+		elif num == 3:
 			return
 
 # Główna funkcja skryptu

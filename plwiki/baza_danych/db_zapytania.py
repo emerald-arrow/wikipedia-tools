@@ -4,11 +4,14 @@ import os
 from modele import Car, Colour, Driver, Team, Manufacturer, Classification
 
 # Połączenie z bazą danych
-def connect_db() -> sqlite3.Connection:
+def connect_db() -> sqlite3.Connection | None:
     db_relative = '../../common/database.db'
     db_absolute = os.path.abspath(db_relative)
     
-    db = sqlite3.connect(db_absolute)
+    try:
+        db = sqlite3.connect(db_absolute)
+    except sqlite3.OperationalError:
+        return None
     return db
 
 # Pobranie trzyliterowej nazwy kraju (ISO 3166-1 alpha-3) z bazy danych. Parametrem jest kod wykorzystywany przez ACO w plikach z wynikami.
@@ -220,10 +223,8 @@ def get_colours() -> list[Colour]:
 		return colours
 
 # Dodawanie auta do bazy danych, zwraca True jedynie w przypadku dodania zarówno auta jak i linku
-def add_car(car: Car) -> bool:
+def add_car(car: Car, wiki_id: int) -> None:
 	db = connect_db()
-
-	wiki_id = get_wiki_id('plwiki')
 	
 	with db:
 		db.execute('BEGIN')
@@ -247,7 +248,7 @@ def add_car(car: Car) -> bool:
 					car.codename,
 					e
 				))
-				return False
+				return
 
 			# Sprawdzenie id dodanego auta
 			query = 'SELECT id FROM car WHERE codename = :codename'
@@ -275,10 +276,11 @@ def add_car(car: Car) -> bool:
 					car.codename,
 					e
 				))
-				return False
-		
+				return
+
+			# Wszystko dobrze
 			db.execute('COMMIT')
-			return True
+			print(f'Dodanie {car.codename} do bazy zakończyło się powodzeniem.')
 		else:
 			# Czy w tabeli car_wikipedia jest już link do artykułu z autem na polskiej wikipedii
 			car_id = result[0]
@@ -315,16 +317,14 @@ def add_car(car: Car) -> bool:
 					))
 					return False
 
-				print(f'{car.codename} - dodano link "{car.link}"')
+				print(f'{car.codename} - z powodzeniem dodano link: "{car.link}"')
 				db.execute('COMMIT')
-				return False
 			else:
 				db.execute('ROLLBACK')
 				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: %s' % (
 					car.codename,
 					result[0]
 				))
-				return False
 
 # Dodawanie kierowcy do bazy danych, zwraca True jedynie w przypadku dodania zarówno kierowcy jak i linków
 def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
