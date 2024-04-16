@@ -27,16 +27,22 @@ class Series:
 		self.organiser = organiser
 
 # Połączenie z bazą danych
-def connect_db():
+def connect_db() -> sqlite3.Connection | None:
     db_relative = '../../../common/database.db'
     db_absolute = os.path.abspath(db_relative)
     
-    db = sqlite3.connect(db_absolute)
+    try:
+        db = sqlite3.connect(db_absolute)
+    except sqlite3.OperationalError:
+        return None
     return db
 
 # Pobieranie id wybranej wersji wikipedii
 def get_wiki_id(version: str) -> int | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 	
 	with db:
 		query = 'SELECT id FROM wikipedia WHERE version = :version;'
@@ -44,16 +50,11 @@ def get_wiki_id(version: str) -> int | None:
 
 		result = db.execute(query, params).fetchone()
 
-		if result is not None:
-			return int(result[0])
-		else:
-			return None
+		return None if result is None else int(result[0])
 
 # Pobieranie danych zespołu
-def get_team_data(codename: str, championship_id: int) -> dict[str, any] | None:
+def get_team_data(codename: str, championship_id: int, wiki_id) -> dict[str, any] | None:
 	db = connect_db()
-
-	wiki_id = get_wiki_id('plwiki')
 
 	with db:
 		query = '''
@@ -85,14 +86,12 @@ def get_team_data(codename: str, championship_id: int) -> dict[str, any] | None:
 				'short_link': result[0],
 				'long_link': result[1],
 				'nationality': result[2],
-				'car_number': int(result[3])
+				'car_number': result[3]
 			}
 
 # Pobieranie danych kierowcy
-def get_driver_data(codename: str) -> dict[str, any] | None:
+def get_driver_data(codename: str, wiki_id: int) -> dict[str, any] | None:
 	db = connect_db()
-
-	wiki_id = get_wiki_id('plwiki')
 
 	with db:
 		query = '''
@@ -124,10 +123,8 @@ def get_driver_data(codename: str) -> dict[str, any] | None:
 			}
 
 # Pobieranie linku do artykułu z autem
-def get_car_link(codename: str) -> str | None:
+def get_car_link(codename: str, wiki_id: int) -> str | None:
 	db = connect_db()
-
-	wiki_id = get_wiki_id('plwiki')
 
 	with db:
 		query = '''
@@ -178,7 +175,7 @@ def get_series() -> dict[int, Series]:
 			return series
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników wyścigu
-def print_race_table(series: Series, filename: str) -> None:
+def print_race_table(series: Series, filename: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%;"',
 		'|+ Klasyfikacja wstępna/ostateczna',
@@ -231,19 +228,23 @@ def print_race_table(series: Series, filename: str) -> None:
 				print(f'| align="center" | {category}')
 
 			# Wypisanie nazwy zespołu, numeru auta i odpowiedniej flagi
-			team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
+			team_data = get_team_data(
+							codename=f'#{row["NUMBER"]} {row["TEAM"]}',
+							championship_id=series.db_id,
+							wiki_id=wiki_id
+						)
 
 			if team_data is None:
 				print(f'| {{{{Flaga|?}}}} #{row["NUMBER"]} [[{row["TEAM"]}]]')
 			else:
 				if team_data['long_link'] != '':
-					print('| {{Flaga|%s}} #%d %s' % (
+					print('| {{Flaga|%s}} #%s %s' % (
 						team_data['nationality'],
 						team_data['car_number'],
 						team_data['long_link']
 					))
 				else:
-					print('| {{Flaga|%s}} #%d %s' % (
+					print('| {{Flaga|%s}} #%s %s' % (
 						team_data['nationality'],
 						team_data['car_number'],
 						team_data['short_link']
@@ -257,7 +258,7 @@ def print_race_table(series: Series, filename: str) -> None:
 				driver_data = None
 				
 				if series.organiser == Organiser.ACO and row[f'DRIVER_{x}'] != '':
-					driver_data = get_driver_data(row[f'DRIVER_{x}'].lower())
+					driver_data = get_driver_data(row[f'DRIVER_{x}'].lower(), wiki_id)
 					if driver_data is None:
 						driver_name = row[f'DRIVER_{x}'].split(" ", 1)
 						driver_data = {
@@ -266,8 +267,11 @@ def print_race_table(series: Series, filename: str) -> None:
 							'nationality': '?'
 						}
 				elif series.organiser == Organiser.IMSA and row[f'DRIVER{x}_FIRSTNAME'] != '':
-					codename = row[f'DRIVER{x}_FIRSTNAME'] + " " + row[f'DRIVER{x}_SECONDNAME'].capitalize()
-					driver_data = get_driver_data(codename.lower())
+					codename = '%s %s' % (
+						row[f'DRIVER{x}_FIRSTNAME'],
+						row[f'DRIVER{x}_SECONDNAME'].capitalize()
+					)
+					driver_data = get_driver_data(codename.lower(), wiki_id)
 					if driver_data is None:
 						driver_data = {
 							'short_link': f'[[{codename}]]',
@@ -296,7 +300,7 @@ def print_race_table(series: Series, filename: str) -> None:
 					), end='')
 
 			# Wypisanie auta
-			car = get_car_link(row['VEHICLE'])
+			car = get_car_link(row['VEHICLE'], wiki_id)
 
 			if car is None:
 				car = f'[[{row["VEHICLE"]}]]'
@@ -336,7 +340,7 @@ def print_race_table(series: Series, filename: str) -> None:
 		print(f'\nPrzetworzone linie: {line_count}')
 
 # Odczyanie pliku .CSV i wypisanie kodu tabeli dla wyników kwalifikacji
-def print_quali_table(series: Series, filename: str) -> None:
+def print_quali_table(series: Series, filename: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -368,17 +372,18 @@ def print_quali_table(series: Series, filename: str) -> None:
 			
 			# Wypisanie pozycji, organizatorzy niejednolicie używają nazwy kolumny z pozycją
 			position = row['POSITION'] if 'POSITION' in row else row['POS']
+			print(f'! {position}')
 
 			# Wypisanie klasy
 			print(f'| align="center" | {category}')
 
 			# Wypisanie nazwy zespołu z numerem samochodu i flagą
-			team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
+			team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id, wiki_id)
 
 			if team_data is not None:
-				print('| {{Flaga|%s}} #%d %s' % (
+				print('| {{Flaga|%s}} #%s %s' % (
 					team_data['nationality'],
-					int(team_data['car_number']),
+					team_data['car_number'],
 					team_data['short_link']
 				))
 			else:
@@ -389,11 +394,9 @@ def print_quali_table(series: Series, filename: str) -> None:
 			
 			drivers: list[dict[str, any]] = list()
 
-			# Maksymalnie składy czteroosobowe
+			# Zebranie danych o kierowcach, maksymalnie składy czteroosobowe
 			for x in range(1, 5):
 				if row[f'DRIVER{x}_FIRSTNAME'] is None or row[f'DRIVER{x}_FIRSTNAME'] == '':
-					print(row[f'DRIVER{x}_FIRSTNAME'] is None)
-					print(row[f'DRIVER{x}_FIRSTNAME'] == '')
 					continue
 
 				driver_name = '%s %s' % (
@@ -401,7 +404,7 @@ def print_quali_table(series: Series, filename: str) -> None:
 					row[f'DRIVER{x}_SECONDNAME'].capitalize()
 				)
 
-				driver_data = get_driver_data(driver_name.lower())
+				driver_data = get_driver_data(driver_name.lower(), wiki_id)
 
 				if driver_data is None:
 					driver_data = {
@@ -465,7 +468,7 @@ def print_quali_table(series: Series, filename: str) -> None:
 		print(f'\nPrzetworzone linie: {line_count}')
 
 # Odczyanie pliku .CSV i wypisanie kodu fragmentu tabeli dla wyników sesji treningowych
-def print_fp_table(series: Series, filename: str) -> None:
+def print_fp_table(series: Series, filename: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%"',
 		'! Klasa',
@@ -494,17 +497,21 @@ def print_fp_table(series: Series, filename: str) -> None:
 				print(f'! {row['CLASS']}')
 
 				# Wypisanie danych zespołu
-				team_data = get_team_data(f'#{row["NUMBER"]} {row["TEAM"]}', series.db_id)
+				team_data = get_team_data(
+								codename=f'#{row["NUMBER"]} {row["TEAM"]}',
+								championship_id=series.db_id,
+								wiki_id=wiki_id
+							)
 
 				if team_data is not None:
-					print('| {{Flaga|%s}} #%d %s' % (
+					print('| {{Flaga|%s}} #%s %s' % (
 						team_data['nationality'],
-						int(team_data['car_number']),
+						team_data['car_number'],
 						team_data['short_link']
 					))
 				else:
-					print('| {{Flaga|?}} #%d [[%s]]' % (
-						int(row['NUMBER']),
+					print('| {{Flaga|?}} #%s [[%s]]' % (
+						row['NUMBER'],
 						row['TEAM']
 					))
 
@@ -602,12 +609,18 @@ def main():
 	session = read_session()
 	series = read_series()
 
+	plwiki_id = get_wiki_id('plwiki')
+
+	if plwiki_id is None:
+		print('Nie znaleziono w bazie polskiej wersji językowej Wikipedii.')
+		return
+
 	if session == Session.FP:
-		print_fp_table(series, file)
+		print_fp_table(series, file, plwiki_id)
 	elif session == Session.QUALI:
-		print_quali_table(series, file)
+		print_quali_table(series, file, plwiki_id)
 	elif session == Session.RACE:
-		print_race_table(series, file)
+		print_race_table(series, file, plwiki_id)
 	else:
 		print('Typ sesji nieobsługiwany')
 

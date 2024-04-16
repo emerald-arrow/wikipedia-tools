@@ -32,7 +32,7 @@ def write_drivers_csv(teams: list[Team]) -> None:
 	
 	print(f'Do pliku {filename} zapisano dane o {len(teams)} zespołach')
 
-# Odczytanie nazw zespołów i wypisanie ich w formacie do zapisania w pliku db.py
+# Odczytanie danych o zespołach z pliku zawierającego wyniki
 def read_results_csv(file: str) -> list[Team]:
 	teams = list()
 
@@ -63,7 +63,7 @@ def read_results_csv(file: str) -> list[Team]:
 
 			line_count += 1
 
-		print(f'Przetworzone linie: {line_count}')
+		print(f'Przetworzone linie: {line_count}\nZnalezione zespoły: {len(teams)}')
 	
 	return teams
 
@@ -81,8 +81,6 @@ def verify_results_csv(file: str) -> bool:
 
 # Odczytanie ścieżki do pliku z wynikami
 def read_results_csv_path() -> str:
-	text = ''
-
 	while True:
 		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
@@ -177,8 +175,6 @@ def choose_teams_csv_file() -> str:
 				print('Podaj liczbę 1 lub 2.')
 				continue
 	
-	text = ''
-
 	while True:
 		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o zespołach:\n')
 
