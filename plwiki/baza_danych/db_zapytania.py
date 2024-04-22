@@ -5,18 +5,21 @@ from modele import Car, Colour, Driver, Team, Manufacturer, Classification
 
 # Połączenie z bazą danych
 def connect_db() -> sqlite3.Connection | None:
-    db_relative = '../../common/database.db'
-    db_absolute = os.path.abspath(db_relative)
+	db_relative = '../../common/database.db'
+	db_absolute = os.path.abspath(db_relative)
     
-    try:
-        db = sqlite3.connect(db_absolute)
-    except sqlite3.OperationalError:
-        return None
-    return db
+	try:
+		db = sqlite3.connect(f'file:{db_absolute}?mode=rw', uri=True)
+	except sqlite3.Error:
+		return None
+	return db
 
 # Pobranie trzyliterowej nazwy kraju (ISO 3166-1 alpha-3) z bazy danych. Parametrem jest kod wykorzystywany przez ACO w plikach z wynikami.
-def get_country_iso_alpha3(code: int) -> str:
+def get_country_iso_alpha3(code: int) -> str | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 	
 	with db:
 		query = 'SELECT country FROM country_code WHERE code = :code;'
@@ -27,10 +30,13 @@ def get_country_iso_alpha3(code: int) -> str:
 		return '?' if result is None else result[0]
 
 # Pobieranie serii wyścigowych
-def get_championships() -> list[dict[str, int | str]]:
-	championships: list[dict[str, any]] = []
-
+def get_championships() -> list[dict[str, int | str]] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
+	
+	championships: list[dict[str, any]] = []
 
 	with db:
 		query = 'SELECT id, name FROM championship'
@@ -44,8 +50,11 @@ def get_championships() -> list[dict[str, int | str]]:
 	return championships
 
 # Pobieranie wersji językowych wikipedii
-def get_wiki_versions() -> list[dict[str, str]]:
+def get_wiki_versions() -> list[dict[str, str]] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 	
 	with db:
 		version_list: list[dict[str, str]] = []
@@ -63,6 +72,9 @@ def get_wiki_versions() -> list[dict[str, str]]:
 # Pobieranie id wybranej wersji wikipedii
 def get_wiki_id(version: str) -> int | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 	
 	with db:
 		query = 'SELECT id FROM wikipedia WHERE version = :version'
@@ -74,6 +86,9 @@ def get_wiki_id(version: str) -> int | None:
 
 def get_entity_type_id(entity_name: str) -> int | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		query = '''
@@ -88,8 +103,12 @@ def get_entity_type_id(entity_name: str) -> int | None:
 		return None if result is None else int(result[0])
 
 # Pobranie wszystkich klasyfikacji danej serii
-def get_classifications_by_championship_id(championship_id: int) -> list[Classification]:
+def get_classifications_by_championship_id(championship_id: int) -> list[Classification] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
+
 	classifications: list[Classification] = []
 
 	with db:
@@ -109,8 +128,11 @@ def get_classifications_by_championship_id(championship_id: int) -> list[Classif
 		return classifications
 
 # Sprawdzenie czy numer rundy jest już w klasyfikacji
-def check_round_number_in_classification(classification_id: int, round_number: int) -> bool:
+def check_round_number_in_classification(classification_id: int, round_number: int) -> bool | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		query = '''
@@ -128,8 +150,11 @@ def check_round_number_in_classification(classification_id: int, round_number: i
 		return False if result is None else bool(result[0])
 
 # Sprawdzenie czy zespół/kierowca może punktować w danej klasyfikacji
-def check_classification_eligibility(classification_id: int, test_id: int) -> bool:
+def check_classification_eligibility(classification_id: int, test_id: int) -> bool | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		# Jeśli jest w tej tabeli to nie może
@@ -148,8 +173,11 @@ def check_classification_eligibility(classification_id: int, test_id: int) -> bo
 		return True if result is None else bool(not result[0])
 
 # Pobieranie id zespołu i czy może on punktować
-def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> tuple[int | None, bool | None]:
+def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> tuple[int | None, bool | None] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		query = '''
@@ -168,6 +196,9 @@ def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> 
 def get_driver_by_codename(codename: str) -> dict[str, int | str] | None:
 	db = connect_db()
 
+	if db is None:
+		return None
+
 	with db:
 		query = '''
 			SELECT d.flag, dw.short_link, d.id
@@ -183,8 +214,11 @@ def get_driver_by_codename(codename: str) -> dict[str, int | str] | None:
 		return None if result is None else {'id': result[2], 'flag': result[0], 'link': result[1]}
 
 # Pobranie wszystkich producentów
-def get_manufacturers() -> list[Manufacturer]:
+def get_manufacturers() -> list[Manufacturer] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		query = '''
@@ -203,8 +237,11 @@ def get_manufacturers() -> list[Manufacturer]:
 		return manufacturers
 
 # Pobieranie styli kolorowania wyników
-def get_colours() -> list[Colour]:
+def get_colours() -> list[Colour] | None:
 	db = connect_db()
+
+	if db is None:
+		return None
 
 	with db:
 		query = '''
@@ -222,9 +259,13 @@ def get_colours() -> list[Colour]:
 		
 		return colours
 
-# Dodawanie auta do bazy danych, zwraca True jedynie w przypadku dodania zarówno auta jak i linku
+# Dodawanie auta do bazy danych
 def add_car(car: Car, wiki_id: int) -> None:
 	db = connect_db()
+
+	if db is None:
+		print('Nie dodano auta z racji braku połączenia z bazą danych.')
+		return
 	
 	with db:
 		db.execute('BEGIN')
@@ -315,10 +356,10 @@ def add_car(car: Car, wiki_id: int) -> None:
 						car.codename,
 						e
 					))
-					return False
+					return
 
-				print(f'{car.codename} - z powodzeniem dodano link: "{car.link}"')
 				db.execute('COMMIT')
+				print(f'{car.codename} - z powodzeniem dodano link: "{car.link}"')
 			else:
 				db.execute('ROLLBACK')
 				print('%s ma już w bazie link do artykułu na polskiej Wikipedii: %s' % (
@@ -326,9 +367,13 @@ def add_car(car: Car, wiki_id: int) -> None:
 					result[0]
 				))
 
-# Dodawanie kierowcy do bazy danych, zwraca True jedynie w przypadku dodania zarówno kierowcy jak i linków
-def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
+# Dodawanie kierowcy do bazy danych
+def add_driver(driver: Driver, wiki_id: int, type_id: int) -> None:
 	db = connect_db()
+
+	if db is None:
+		print('Nie dodano kierowcy z racji braku połączenia z bazą danych.')
+		return
 
 	driver_id = None
 	exists = False
@@ -364,7 +409,7 @@ def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
 					driver.codename,
 					e
 				))
-				return False
+				return
 			
 			# Sprawdzenie id dodanego kierowcy
 			query = '''
@@ -396,7 +441,7 @@ def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
 					driver.codename,
 					e
 				))
-				return False
+				return
 		else:
 			exists = True
 			# Czy dane o kierowcy są w tabeli driver_wikipedia
@@ -423,8 +468,7 @@ def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
 					result[0],
 					result[1]
 				))
-
-				return False
+				return
 		
 		# Dodanie linków do tabeli driver_wikipedia
 		query = '''
@@ -446,19 +490,22 @@ def add_driver(driver: Driver, wiki_id: int, type_id: int) -> bool:
 				driver.codename,
 				e
 			))
-			return False
+			return
 
 		db.execute('COMMIT')
 
 		if exists:
-			print('%s - dodano linki do artykułów na polskiej Wikipedii' % (driver.codename))
-			return False
+			print(f'{driver.codename} - dodano linki do artykułów na polskiej Wikipedii')
 		else:
-			return True
+			print(f'{driver.codename} - dodano do bazy danych')
 
-# Dodawanie zespołu do bazy danych, zwraca True jedynie w przypadku dodania zarówno zespołu jak i linków
-def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bool:
+# Dodawanie zespołu do bazy danych
+def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> None:
 	db = connect_db()
+
+	if db is None:
+		print('Nie dodano zespołu z racji braku połączenia z bazą danych.')
+		return
 
 	team_id = None
 	exists = False
@@ -502,7 +549,7 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bo
 					team.codename,
 					e
 				))
-				return False
+				return
 			
 			# Sprawdzenie id dodanego zespołu
 			query = '''
@@ -536,7 +583,7 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bo
 					team.codename,
 					e
 				))
-				return False
+				return
 		else:
 			exists = True
 			# Czy dane o zespole są w tabeli team_wikipedia
@@ -564,7 +611,7 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bo
 					result[1]
 				))
 
-				return False
+				return
 		
 		# Dodanie linku/linków w tabeli team_wikipedia
 		query = '''
@@ -587,19 +634,19 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> bo
 				team.codename,
 				e
 			))
-			return False
+			return
 
 		db.execute('COMMIT')
+		
 		if exists:
-			print('%s - dodano linki do artykułów na polskiej Wikipedii' % (team.codename))
-			return False
+			print(f'{team.codename} - dodano linki do artykułów na polskiej Wikipedii')
 		else:
-			return True
+			print(f'{team.codename} - dodano do bazy danych')
 
 # Dodanie wyniku do bazy danych
 def add_score(classification_id: int, entity_id: int, colour_id: int,
 			  position: int, points: int, pole_position: bool,
-			  round_number: int) -> bool:
+			  round_number: int) -> None:
 	db = connect_db()
 
 	print(locals())
