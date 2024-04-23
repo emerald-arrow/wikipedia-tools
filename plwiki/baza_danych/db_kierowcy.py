@@ -30,23 +30,36 @@ def write_drivers_csv(drivers: list[Driver]) -> None:
 		for d in drivers:
 			csv_writer.writerow(list(d))
 	
-	print(f'Do pliku {filename} zapisano dane o {len(drivers)} kierowcach')
+	print(f'\nDo pliku {filename} zapisano dane o {len(drivers)} kierowcach')
 
 # Odczytanie danych o kierowcach kierowców z pliku zawierającego wyniki
 def read_results_csv(file) -> list[Driver]:
+	from db_zapytania import check_driver_exists
+
 	drivers: list[Driver] = list()
 
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 
+		print('')
+
 		for row in csv_reader:
+			line_count += 1
+
 			for x in range(1,5):
 				if row[f'DRIVER{x}_FIRSTNAME'] != '':
 					driver_codename='%s %s' % (
 						row[f'DRIVER{x}_FIRSTNAME'].lower(),
 						row[f'DRIVER{x}_SECONDNAME'].lower()
 					)
+					
+					driver_nationality = row[f'DRIVER{x}_COUNTRY']
+
+					if check_driver_exists(driver_codename, driver_nationality):
+						print(f'{driver_codename} ({driver_nationality}) jest już w bazie.')
+						continue
+
 					driver_short_link='[[%s %s]]' % (
 						row[f'DRIVER{x}_FIRSTNAME'].capitalize(),
 						row[f'DRIVER{x}_SECONDNAME'].capitalize()
@@ -54,15 +67,13 @@ def read_results_csv(file) -> list[Driver]:
 					
 					driver = Driver(
 						codename=driver_codename,
-						nationality=row[f'DRIVER{x}_COUNTRY'],
+						nationality=driver_nationality,
 						short_link=driver_short_link
 					)
 
 					drivers.append(driver)
 
-			line_count += 1
-
-		print(f'Przetworzne linie: {line_count}')
+		print(f'\nPrzetworzne linie: {line_count}.\nZnalezioni kierowcy: {len(drivers)}')
 	
 	return drivers
 
@@ -87,13 +98,13 @@ def read_results_csv_path() -> str:
 	text = ''
 
 	while True:
-		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		elif not verify_results_csv(text):
-			print('Plik nie posiada wymaganych kolumn.')
+			print('\nPlik nie posiada wymaganych kolumn.')
 			continue
 		else:
 			return text
@@ -103,6 +114,9 @@ def driver_data_to_csv_mode() -> None:
 	path: str = read_results_csv_path()
 
 	drivers: list[Driver] = read_results_csv(path)
+
+	if len(drivers) == 0:
+		return
 
 	write_drivers_csv(drivers)
 
@@ -137,20 +151,20 @@ def choose_drivers_csv_file() -> str:
 	csv_files: list[str] = get_drivers_csv_files_in_dir()
 
 	if len(csv_files) > 1:
-		for x in range(0, len(csv_files)):
-			print(f'{x+1}. {csv_files[x]}')
-	
 		while True:
+			for x in range(0, len(csv_files)):
+				print(f'{x+1}. {csv_files[x]}')
+
 			try:
 				num = int(input(f'Wybór (1-{len(csv_files)}): '))
 			except ValueError:
-				print('Podaj liczbę widoczną przy nazwie pliku')
+				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
 
 			if num-1 in range(0, len(csv_files)):
 				return csv_files[num-1]
 			else:
-				print('Błędna liczba. Spróbuj ponownie.')
+				print('\nBłędna liczba. Spróbuj ponownie.')
 				continue
 	elif len(csv_files) == 1:
 		options = {
@@ -158,16 +172,16 @@ def choose_drivers_csv_file() -> str:
 			2: 'Nie'
 		}
 
-		print(f'Jedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
-
-		for x in options:
-			print(f'{x}. {options[x]}')
-
 		while True:
+			print(f'\nJedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
+
+			for x in options:
+				print(f'{x}. {options[x]}')
+
 			try:
 				num = int(input('Wybór (1-2): '))
 			except ValueError:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 			
 			if num in options:
@@ -176,20 +190,20 @@ def choose_drivers_csv_file() -> str:
 				else:
 					break
 			else:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 
 	while True:
-		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o kierowcach:\n')
+		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o kierowcach:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		if re.search('.*\\.([Cc][Ss][Vv])', text) is None:
-			print('Podany plik nie posiada rozszerzenia csv.')
+			print('\nPodany plik nie posiada rozszerzenia csv.')
 			continue
 		if not verify_drivers_csv(text):
-			print('Podany plik csv nie posiada wymaganych kolumn.')
+			print('\nPodany plik csv nie posiada wymaganych kolumn.')
 			continue
 
 		return text
@@ -215,7 +229,7 @@ def read_drivers_csv(path: str) -> list[Driver]:
 			drivers.append(Driver(codename, nationality, short_link, long_link))
 			line_count += 1
 		
-		print(f'Przetworzone linie: {line_count}.\nLiczba znalezionych kierowców: {len(drivers)}.')
+		print(f'\nPrzetworzone linie: {line_count}.\nZnalezieni kierowcy: {len(drivers)}.')
 	
 	return drivers
 
@@ -237,11 +251,11 @@ def driver_data_to_db_mode() -> None:
 	type_id: int | None = get_entity_type_id('driver')
 
 	if wiki_id is None:
-		print('W bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
+		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
 		return
 	
 	if type_id is None:
-		print('W bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
+		print('\nW bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
 		return
 
 	for driver in drivers:
@@ -251,29 +265,32 @@ def driver_data_to_db_mode() -> None:
 # Wybór trybu pracy skryptu
 def choose_mode() -> None:
 	options = {
-		'1': 'Wygenerować plik .csv z danymi o kierowcach',
-		'2': 'Zapisać dane o kierowcach w bazie',
-		'3': 'Zakończyć działanie'
+		1: 'Wygenerować plik .csv z danymi o kierowcach',
+		2: 'Zapisać dane o kierowcach w bazie',
+		3: 'Zakończyć działanie'
 	}
-
-	print('Wybierz co ma zrobić skrypt.')
-
-	for o in options:
-		print(f'{o}. {options[o]}')
 	
 	while True:
-		text = input('Wybór: ')
+		print('\nWybierz co ma zrobić skrypt.')
 
-		if text not in options:
-			print('Wybór spoza powyższej listy, spróbuj ponownie.')
+		for o in options:
+			print(f'{o}. {options[o]}')
+
+		try:
+			num = int(input('Wybór: '))
+		except ValueError:
+			print(f'\nPodaj liczbę z przedziału 1-{len(options)}.')
+
+		if num not in options:
+			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
-		elif text == '1':
+		elif num == 1:
 			driver_data_to_csv_mode()
 			break
-		elif text == '2':
+		elif num == 2:
 			driver_data_to_db_mode()
 			break
-		elif text == '3':
+		elif num == 3:
 			return
 
 # Główna funkcja skryptu

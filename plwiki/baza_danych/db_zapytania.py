@@ -172,6 +172,72 @@ def check_classification_eligibility(classification_id: int, test_id: int) -> bo
 
 		return True if result is None else bool(not result[0])
 
+# Sprwadzenie czy samochód jest już w bazie
+def check_car_exists(codename: str) -> bool | None:
+	db = connect_db()
+
+	if db is None:
+		return None
+	
+	with db:
+		query = '''
+			SELECT EXISTS(
+				SELECT 1
+				FROM car
+				WHERE codename = :codename
+			);
+		'''
+		params = {'codename': codename}
+
+		result = db.execute(query, params).fetchone()
+
+		return None if result is None else bool(result[0])
+
+# Sprawdzenie czy kierowca już jest w bazie
+def check_driver_exists(codename: str, flag: str) -> bool | None:
+	db = connect_db()
+
+	if db is None:
+		return None
+	
+	with db:
+		query = '''
+			SELECT EXISTS(
+				SELECT 1
+				FROM driver
+				WHERE codename = :codename
+				AND flag = :flag
+			);
+		'''
+		params = {'codename': codename, 'flag': flag}
+
+		result = db.execute(query, params).fetchone()
+
+		return None if result is None else bool(result[0])
+
+# Sprawdzenie czy zespół już jest w bazie
+def check_team_exists(codename: str, flag: str, car_number: str) -> bool | None:
+	db = connect_db()
+
+	if db is None:
+		return None
+	
+	with db:
+		query = '''
+			SELECT EXISTS(
+				SELECT 1
+				FROM team
+				WHERE codename = :codename
+				AND flag = :flag
+				AND car_number = :car_number
+			);
+		'''
+		params = {'codename': codename, 'flag': flag, 'car_number': car_number}
+
+		result = db.execute(query, params).fetchone()
+
+		return None if result is None else bool(result[0])
+
 # Pobieranie id zespołu i czy może on punktować
 def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> tuple[int | None, bool | None] | None:
 	db = connect_db()
@@ -193,7 +259,7 @@ def get_team_id_and_scoring_by_codename(codename: str, championship_id: str) -> 
 		return (None, None) if result is None else (int(result[0]), bool(result[1]))
 
 # Pobieranie danych kierowcy przy użyciu codename
-def get_driver_by_codename(codename: str) -> dict[str, int | str] | None:
+def get_driver_by_codename(codename: str, wiki_id: int) -> dict[str, int | str] | None:
 	db = connect_db()
 
 	if db is None:
@@ -205,9 +271,10 @@ def get_driver_by_codename(codename: str) -> dict[str, int | str] | None:
 			FROM driver d
 			JOIN driver_wikipedia dw
 			ON d.id = dw.driver_id
-			WHERE codename = :codename;
+			WHERE codename = :codename
+			AND wikipedia_id = :wiki_id;
 		'''
-		params = {'codename': codename}
+		params = {'codename': codename, 'wiki_id': wiki_id}
 
 		result = db.execute(query, params).fetchone()
 
