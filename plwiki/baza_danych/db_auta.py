@@ -31,27 +31,32 @@ def write_cars_csv(cars: set[Car]) -> None:
 		for c in cars:
 			csv_writer.writerow(list(c))
 	
-	print(f'Do pliku {filename} zapisano {len(cars)} aut')
+	print(f'\nDo pliku {filename} zapisano {len(cars)} aut.')
 
 # Odczytanie samochodów z pliku zawierającego wyniki
 def read_results_csv(path: str) -> set[Car]:
+	from db_zapytania import check_car_exists
+
 	cars: set[Car] = set()
 	
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 
+		print('')
+
 		for row in csv_reader:
-			try:
-				codename = row["VEHICLE"]
-			except:
-				line_count += 1
+			line_count += 1
+
+			codename = row['VEHICLE']
+
+			if check_car_exists(codename):
+				print(f'{codename} jest już w bazie.')
 				continue
 
 			cars.add(Car(codename, f'[[{codename}]]'))
-			line_count += 1
 		
-		print(f'Przetworzone linie: {line_count}')
+		print(f'\nPrzetworzone linie: {line_count}.\nZnalezione auta: {len(cars)}')
 	
 	return cars
 
@@ -67,13 +72,13 @@ def verify_results_csv(path: str) -> bool:
 # Odczytanie ścieżki do pliku csv zawierającego wyniki
 def read_path_to_results_csv() -> str:
 	while True:
-		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		if not verify_results_csv(text):
-			print('Plik nie posiada wymaganych kolumn.')
+			print('\nPlik nie posiada wymaganych kolumn.')
 			continue
 		else:
 			return text
@@ -83,6 +88,9 @@ def car_data_to_csv_mode() -> None:
 	path: str = read_path_to_results_csv()
 
 	cars: set[Car] = read_results_csv(path)
+
+	if len(cars) == 0:
+		return
 
 	write_cars_csv(cars)
 
@@ -115,20 +123,20 @@ def choose_car_csv_file() -> str:
 	csv_files: list[str] = get_cars_csv_files_in_dir()
 
 	if len(csv_files) > 1:
-		for x in range(0, len(csv_files)):
-			print(f'{x+1}. {csv_files[x]}')
-	
 		while True:
+			for x in range(0, len(csv_files)):
+				print(f'{x+1}. {csv_files[x]}')
+
 			try:
 				num = int(input(f'Wybór (1-{len(csv_files)}): '))
 			except ValueError:
-				print('Podaj liczbę widoczną przy nazwie pliku')
+				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
 
 			if num-1 in range(0, len(csv_files)):
 				return csv_files[num-1]
 			else:
-				print('Błędna liczba. Spróbuj ponownie.')
+				print('\nBłędna liczba. Spróbuj ponownie.')
 				continue
 	elif len(csv_files) == 1:
 		options = {
@@ -136,16 +144,16 @@ def choose_car_csv_file() -> str:
 			2: 'Nie'
 		}
 
-		print(f'Jedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
-
-		for x in options:
-			print(f'{x}. {options[x]}')
-
 		while True:
+			print(f'\nJedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
+
+			for x in options:
+				print(f'{x}. {options[x]}')
+
 			try:
 				num = int(input('Wybór (1-2): '))
 			except ValueError:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 			
 			if num in options:
@@ -154,20 +162,20 @@ def choose_car_csv_file() -> str:
 				else:
 					break
 			else:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 	
 	while True:
-		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o autach:\n')
+		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o autach:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		if re.search('.*\\.([Cc][Ss][Vv])', text) is None:
-			print('Podany plik nie posiada rozszerzenia csv.')
+			print('\nPodany plik nie posiada rozszerzenia csv.')
 			continue
 		if not verify_cars_csv(text):
-			print('Podany plik csv nie posiada wymaganych kolumn.')
+			print('\nPodany plik csv nie posiada wymaganych kolumn.')
 			continue
 
 		return text
@@ -191,7 +199,7 @@ def read_cars_csv(path: str) -> set[Car]:
 			cars.add(Car(codename, link))
 			line_count += 1
 		
-		print(f'Przetworzone linie: {line_count}.\nLiczba znalezionych aut: {len(cars)}.')
+		print(f'\nPrzetworzone linie: {line_count}.\nLiczba znalezionych aut: {len(cars)}.')
 	
 	return cars
 
@@ -210,7 +218,7 @@ def car_data_to_db_mode() -> None:
 	plwiki_id: int | None  = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
-		print('Nie znaleziono id polskiej Wikipedii w bazie danych. Nie można rozpocząć dodawania danych do bazy danych.')
+		print('\nNie znaleziono id polskiej Wikipedii w bazie danych. Nie można rozpocząć dodawania danych do bazy danych.')
 		return
 
 	for car in cars:
@@ -219,25 +227,25 @@ def car_data_to_db_mode() -> None:
 # Wybór trybu pracy skryptu
 def choose_mode() -> None:
 	options = {
-		'1': 'Wygenerować plik .csv z danymi o autach',
-		'2': 'Zapisać dane o autach w bazie',
-		'3': 'Zakończyć działanie'
+		1: 'Wygenerować plik .csv z danymi o autach',
+		2: 'Zapisać dane o autach w bazie',
+		3: 'Zakończyć działanie'
 	}
 
-	print('Wybierz co ma zrobić skrypt.')
-
-	for o in options:
-		print(f'{o}. {options[o]}')
-
 	while True:
+		print('\nWybierz co ma zrobić skrypt.')
+
+		for o in options:
+			print(f'{o}. {options[o]}')
+
 		try:
 			num = int(input('Wybór: '))
 		except ValueError:
-			print('Podaj liczbę między 1 a 3.')
+			print('\nPodaj liczbę między 1 a 3.')
 			continue
 
 		if num not in options:
-			print('Wybór spoza powyższej listy, spróbuj ponownie.')
+			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
 		elif num == 1:
 			car_data_to_csv_mode()
