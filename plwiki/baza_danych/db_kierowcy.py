@@ -33,7 +33,7 @@ def write_drivers_csv(drivers: list[Driver]) -> None:
 	print(f'\nDo pliku {filename} zapisano dane o {len(drivers)} kierowcach')
 
 # Odczytanie danych o kierowcach kierowców z pliku zawierającego wyniki
-def read_results_csv(file) -> list[Driver]:
+def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 	from db_zapytania import check_driver_exists
 
 	drivers: list[Driver] = list()
@@ -56,7 +56,7 @@ def read_results_csv(file) -> list[Driver]:
 					
 					driver_nationality = row[f'DRIVER{x}_COUNTRY']
 
-					if check_driver_exists(driver_codename, driver_nationality):
+					if check_driver_exists(driver_codename, driver_nationality, wiki_id):
 						print(f'{driver_codename} ({driver_nationality}) jest już w bazie.')
 						continue
 
@@ -111,9 +111,16 @@ def read_results_csv_path() -> str:
 
 # Tworzenie pliku .csv z danymi kierowców
 def driver_data_to_csv_mode() -> None:
+	from db_zapytania import get_wiki_id
+
+	plwiki_id = get_wiki_id('plwiki')
+
+	if plwiki_id is None:
+		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii')
+
 	path: str = read_results_csv_path()
 
-	drivers: list[Driver] = read_results_csv(path)
+	drivers: list[Driver] = read_results_csv(path, plwiki_id)
 
 	if len(drivers) == 0:
 		return

@@ -10,7 +10,7 @@ import re
 from modele import Team
 
 # Zapisanie danych o zespołach do pliku .csv
-def write_drivers_csv(teams: list[Team]) -> None:
+def write_teams_csv(teams: list[Team]) -> None:
 	from datetime import datetime
 	timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 	filename = f'zespoły_{timestamp}.csv'
@@ -30,20 +30,26 @@ def write_drivers_csv(teams: list[Team]) -> None:
 		for t in teams:
 			csv_writer.writerow(list(t))
 	
-	print(f'Do pliku {filename} zapisano dane o {len(teams)} zespołach')
+	print(f'\nDo pliku {filename} zapisano dane o {len(teams)} zespołach')
 
 # Odczytanie danych o zespołach z pliku zawierającego wyniki
-def read_results_csv(file: str) -> list[Team]:
+def read_results_csv(file: str, wiki_id: int) -> list[Team]:
+	from db_zapytania import get_country_iso_alpha3
+	from db_zapytania import check_team_exists
+
 	teams = list()
 
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
-		from db_zapytania import get_country_iso_alpha3
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
 
+		print('')
+
 		for row in csv_reader:
+			line_count += 1
+
 			try:
-				country_id: int = row["ECM Country Id"]
+				country_id: int = row['ECM Country Id']
 				team_country = get_country_iso_alpha3(country_id)
 			except KeyError:
 				team_country = '?'
@@ -51,6 +57,18 @@ def read_results_csv(file: str) -> list[Team]:
 			team_codename = f'#{row["NUMBER"]} {row["TEAM"]}'
 			team_car_no = int(row['NUMBER'])
 			team_short_link = f'[[{row["TEAM"]}]]'
+
+			if type(team_country) != None:
+				check_team_db: bool = check_team_exists(
+										team_codename,
+										team_country,
+										team_car_no,
+										wiki_id
+									)
+
+				if check_team_db:
+					print(f'{team_codename} ({team_country}) jest już w bazie.')
+					continue
 
 			team = Team(
 				codename=team_codename,
@@ -61,9 +79,7 @@ def read_results_csv(file: str) -> list[Team]:
 
 			teams.append(team)
 
-			line_count += 1
-
-		print(f'Przetworzone linie: {line_count}\nZnalezione zespoły: {len(teams)}')
+		print(f'\nPrzetworzone linie: {line_count}\nZnalezione zespoły: {len(teams)}')
 	
 	return teams
 
@@ -82,24 +98,35 @@ def verify_results_csv(file: str) -> bool:
 # Odczytanie ścieżki do pliku z wynikami
 def read_results_csv_path() -> str:
 	while True:
-		text = input('Podaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		elif not verify_results_csv(text):
-			print('Plik nie posiada wymaganych kolumn.')
+			print('\nPlik nie posiada wymaganych kolumn.')
 			continue
 		else:
 			return text
 
 # Tworzenie pliku .csv z danymi zespołów
 def team_data_to_csv_mode() -> None:
+	from db_zapytania import get_wiki_id
+
+	plwiki_id: int | None = get_wiki_id('plwiki')
+
+	if plwiki_id is None:
+		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii.')
+		return
+
 	path: str = read_results_csv_path()
 
-	teams: list[Team] = read_results_csv(path)
+	teams: list[Team] = read_results_csv(path, plwiki_id)
 
-	write_drivers_csv(teams)
+	if len(teams) == 0:
+		return
+
+	write_teams_csv(teams)
 
 # Sprawdzenie czy podany plik z danymi zespołów ma wymagane kolumny
 def verify_teams_csv(path: str) -> bool:
@@ -140,13 +167,13 @@ def choose_teams_csv_file() -> str:
 			try:
 				num = int(input(f'Wybór (1-{len(csv_files)}): '))
 			except ValueError:
-				print('Podaj liczbę widoczną przy nazwie pliku')
+				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
 
 			if num-1 in range(0, len(csv_files)):
 				return csv_files[num-1]
 			else:
-				print('Błędna liczba. Spróbuj ponownie.')
+				print('\nBłędna liczba. Spróbuj ponownie.')
 				continue
 	elif len(csv_files) == 1:
 		options = {
@@ -154,16 +181,16 @@ def choose_teams_csv_file() -> str:
 			2: 'Nie'
 		}
 
-		print(f'Jedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
-
-		for x in options:
-			print(f'{x}. {options[x]}')
-
 		while True:
+			print(f'\nJedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
+
+			for x in options:
+				print(f'{x}. {options[x]}')
+
 			try:
 				num = int(input('Wybór (1-2): '))
 			except ValueError:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 			
 			if num in options:
@@ -172,20 +199,20 @@ def choose_teams_csv_file() -> str:
 				else:
 					break
 			else:
-				print('Podaj liczbę 1 lub 2.')
+				print('\nPodaj liczbę 1 lub 2.')
 				continue
 	
 	while True:
-		text = input('Podaj ścieżkę do pliku .csv zawierającego dane o zespołach:\n')
+		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o zespołach:\n')
 
 		if not os.path.isfile(text):
-			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
+			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		if re.search('.*\\.([Cc][Ss][Vv])', text) is None:
-			print('Podany plik nie posiada rozszerzenia csv.')
+			print('\nPodany plik nie posiada rozszerzenia csv.')
 			continue
 		if not verify_teams_csv(text):
-			print('Podany plik csv nie posiada wymaganych kolumn.')
+			print('\nPodany plik csv nie posiada wymaganych kolumn.')
 			continue
 
 		return text
@@ -212,7 +239,7 @@ def read_teams_csv(path: str) -> list[Team]:
 			teams.append(Team(codename, nationality, int(car_number), short_link, long_link))
 			line_count += 1
 		
-		print(f'Przetworzone linie: {line_count}.\nLiczba znalezionych zespołów: {len(teams)}.')
+		print(f'\nPrzetworzone linie: {line_count}.\nLiczba znalezionych zespołów: {len(teams)}.')
 	
 	return teams
 
@@ -224,20 +251,20 @@ def read_championship() -> int:
 
 	num: int = None
 
-	print('Wybierz serię w której startują zespoły z wczytanego pliku:')
-
 	while True:
+		print('\nWybierz serię w której startują zespoły z wczytanego pliku:')
+
 		for x in range(0, len(championships)):
 			print(f'{x+1}. {championships[x]['name']}')
 		
 		try:
 			num = int(input(f'Wybór (1-{len(championships)}): '))
 		except (TypeError, ValueError):
-			print(f'Podaj liczbę naturalną z przedziału 1-{len(championships)}')
+			print(f'\nPodaj liczbę naturalną z przedziału 1-{len(championships)}')
 			continue
 
 		if num-1 not in range(0, len(championships)):
-			print(f'Podaj liczbę naturalną z zakresu 1-{len(championships)}')
+			print(f'\nPodaj liczbę naturalną z zakresu 1-{len(championships)}')
 			continue
 		else:
 			return championships[num-1]['id']
@@ -259,11 +286,11 @@ def team_data_to_db_mode() -> None:
 	type_id: int | None = get_entity_type_id('team')
 
 	if wiki_id is None:
-		print('W bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
+		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
 		return
 	
 	if type_id is None:
-		print('W bazie nie znaleziono typu zespołów. Nie można dodać zespołów do bazy.')
+		print('\nW bazie nie znaleziono typu zespołów. Nie można dodać zespołów do bazy.')
 		return
 
 	for team in teams:
@@ -273,29 +300,33 @@ def team_data_to_db_mode() -> None:
 # Wybór trybu pracy skryptu
 def choose_mode() -> None:
 	options = {
-		'1': 'Wygenerować plik .csv z danymi o zespołach',
-		'2': 'Zapisać dane o zespołach w bazie',
-		'3': 'Zakończyć działanie'
+		1: 'Wygenerować plik .csv z danymi o zespołach',
+		2: 'Zapisać dane o zespołach w bazie',
+		3: 'Zakończyć działanie'
 	}
-
-	print('Wybierz co ma zrobić skrypt.')
-
-	for o in options:
-		print(f'{o}. {options[o]}')
 	
 	while True:
-		text = input('Wybór: ')
+		print('\nWybierz co ma zrobić skrypt.')
 
-		if text not in options:
-			print('Wybór spoza powyższej listy, spróbuj ponownie.')
+		for o in options:
+			print(f'{o}. {options[o]}')
+
+		try:
+			num = int(input(f'Wybór 1-{len(options)}: '))
+		except ValueError:
+			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
-		elif text == '1':
+
+		if num not in options:
+			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
+			continue
+		elif num == 1:
 			team_data_to_csv_mode()
 			break
-		elif text == '2':
+		elif num == 2:
 			team_data_to_db_mode()
 			break
-		elif text == '3':
+		elif num == 3:
 			return
 
 # Główna funkcja skryptu

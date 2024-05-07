@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-from modele import Car, Colour, Driver, Team, Manufacturer, Classification
+from modele import Car, Colour, Driver, Team, Manufacturer, Classification, PointsSystem
 
 # Połączenie z bazą danych
 def connect_db() -> sqlite3.Connection | None:
@@ -173,7 +173,7 @@ def check_classification_eligibility(classification_id: int, test_id: int) -> bo
 		return True if result is None else bool(not result[0])
 
 # Sprwadzenie czy samochód jest już w bazie
-def check_car_exists(codename: str) -> bool | None:
+def check_car_exists(codename: str, wikipedia_id: int) -> bool | None:
 	db = connect_db()
 
 	if db is None:
@@ -183,18 +183,21 @@ def check_car_exists(codename: str) -> bool | None:
 		query = '''
 			SELECT EXISTS(
 				SELECT 1
-				FROM car
+				FROM car c
+				JOIN car_wikipedia cw
+				ON c.id = cw.car_id
 				WHERE codename = :codename
+				AND c.wikipedia_id = :wiki_id
 			);
 		'''
-		params = {'codename': codename}
+		params = {'codename': codename, 'wiki_id': wikipedia_id}
 
 		result = db.execute(query, params).fetchone()
 
 		return None if result is None else bool(result[0])
 
 # Sprawdzenie czy kierowca już jest w bazie
-def check_driver_exists(codename: str, flag: str) -> bool | None:
+def check_driver_exists(codename: str, flag: str, wikipedia_id: int) -> bool | None:
 	db = connect_db()
 
 	if db is None:
@@ -204,19 +207,22 @@ def check_driver_exists(codename: str, flag: str) -> bool | None:
 		query = '''
 			SELECT EXISTS(
 				SELECT 1
-				FROM driver
-				WHERE codename = :codename
-				AND flag = :flag
+				FROM driver d
+				JOIN driver_wikipedia dw
+				ON d.id = dw.driver_id
+				WHERE d.codename = :codename
+				AND d.flag = :flag
+				AND dw.wikipedia_id = :wiki_id
 			);
 		'''
-		params = {'codename': codename, 'flag': flag}
+		params = {'codename': codename, 'flag': flag, 'wiki_id': wikipedia_id}
 
 		result = db.execute(query, params).fetchone()
 
 		return None if result is None else bool(result[0])
 
 # Sprawdzenie czy zespół już jest w bazie
-def check_team_exists(codename: str, flag: str, car_number: str) -> bool | None:
+def check_team_exists(codename: str, flag: str, car_number: str, wikipedia_id: int) -> bool | None:
 	db = connect_db()
 
 	if db is None:
@@ -226,13 +232,21 @@ def check_team_exists(codename: str, flag: str, car_number: str) -> bool | None:
 		query = '''
 			SELECT EXISTS(
 				SELECT 1
-				FROM team
+				FROM team t
+				JOIN team_wikipedia tw
+				ON t.id = tw.team_id
 				WHERE codename = :codename
-				AND flag = :flag
-				AND car_number = :car_number
+				AND t.flag = :flag
+				AND t.car_number = :car_number
+				AND tw.wikipedia_id = :wiki_id
 			);
 		'''
-		params = {'codename': codename, 'flag': flag, 'car_number': car_number}
+		params = {
+			'codename': codename,
+			'flag': flag,
+			'car_number': car_number,
+			'wiki_id': wikipedia_id
+		}
 
 		result = db.execute(query, params).fetchone()
 
@@ -325,6 +339,31 @@ def get_colours() -> list[Colour] | None:
 				colours.append(Colour(r[0], r[1]))
 		
 		return colours
+
+# Pobieranie skali punktowych danej serii
+def get_points_scales(championship_id: int) -> list[float]:
+	db = connect_db()
+
+	if db is None:
+		return None
+	
+	with db:
+		query = '''
+			SELECT DISTINCT scale
+			FROM points_system
+			WHERE championship_id = :ch_id;
+		'''
+		params = {'ch_id': championship_id}
+
+		result = db.execute(query, params).fetchall()
+
+		points_scales = list()
+
+		if result is not None:
+			for r in result:
+				points_scales.append(float(r[0]))
+		
+		return points_scales
 
 # Dodawanie auta do bazy danych
 def add_car(car: Car, wiki_id: int) -> None:
