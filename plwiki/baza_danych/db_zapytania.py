@@ -187,7 +187,7 @@ def check_car_exists(codename: str, wikipedia_id: int) -> bool | None:
 				JOIN car_wikipedia cw
 				ON c.id = cw.car_id
 				WHERE codename = :codename
-				AND c.wikipedia_id = :wiki_id
+				AND cw.wikipedia_id = :wiki_id
 			);
 		'''
 		params = {'codename': codename, 'wiki_id': wikipedia_id}

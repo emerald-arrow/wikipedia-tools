@@ -42,6 +42,7 @@ def read_results_csv(path: str, wiki_id: int) -> set[Car]:
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
 		line_count = 0
+		checked: set[str] = set()
 
 		print('')
 
@@ -50,13 +51,21 @@ def read_results_csv(path: str, wiki_id: int) -> set[Car]:
 
 			codename = row['VEHICLE']
 
+			if type(codename) is not str:
+				continue
+			
+			if codename in checked:
+				continue
+
+			checked.add(codename)
+
 			if check_car_exists(codename, wiki_id):
 				print(f'{codename} jest już w bazie.')
 				continue
 
 			cars.add(Car(codename, f'[[{codename}]]'))
 		
-		print(f'\nPrzetworzone linie: {line_count}.\nZnalezione auta: {len(cars)}')
+		print(f'\nPrzetworzone linie: {line_count}\nZnalezione auta: {len(cars)}')
 	
 	return cars
 
@@ -95,7 +104,7 @@ def car_data_to_csv_mode() -> None:
 
 	path: str = read_path_to_results_csv()
 
-	cars: set[Car] = read_results_csv(path)
+	cars: set[Car] = read_results_csv(path, plwiki_id)
 
 	if len(cars) == 0:
 		return
