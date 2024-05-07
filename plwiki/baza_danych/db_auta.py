@@ -34,7 +34,7 @@ def write_cars_csv(cars: set[Car]) -> None:
 	print(f'\nDo pliku {filename} zapisano {len(cars)} aut.')
 
 # Odczytanie samochodów z pliku zawierającego wyniki
-def read_results_csv(path: str) -> set[Car]:
+def read_results_csv(path: str, wiki_id: int) -> set[Car]:
 	from db_zapytania import check_car_exists
 
 	cars: set[Car] = set()
@@ -50,7 +50,7 @@ def read_results_csv(path: str) -> set[Car]:
 
 			codename = row['VEHICLE']
 
-			if check_car_exists(codename):
+			if check_car_exists(codename, wiki_id):
 				print(f'{codename} jest już w bazie.')
 				continue
 
@@ -85,6 +85,14 @@ def read_path_to_results_csv() -> str:
 
 # Tworzenie pliku .csv z danymi aut
 def car_data_to_csv_mode() -> None:
+	from db_zapytania import get_wiki_id
+
+	plwiki_id: int | None = get_wiki_id('plwiki')
+
+	if plwiki_id is None:
+		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii')
+		return
+
 	path: str = read_path_to_results_csv()
 
 	cars: set[Car] = read_results_csv(path)
