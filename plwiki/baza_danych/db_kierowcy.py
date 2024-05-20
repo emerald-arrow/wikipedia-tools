@@ -1,21 +1,27 @@
 import sys
+import os
+import csv
+import re
+from pathlib import Path
+
+project_path = str(Path(__file__).parent.parent.parent)
+if project_path not in sys.path:
+	sys.path.append(project_path)
+
+from common.models.driver import Driver  # noqa: E402
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
 
-import os
-import csv
-import re
-
-from modele import Driver
 
 # Zapisanie danych o kierowcach do pliku .csv
 def write_drivers_csv(drivers: list[Driver]) -> None:
 	from datetime import datetime
+
 	timestamp = datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 	filename = f'kierowcy_{timestamp}.csv'
-	
-	headers = ['codename','nationality','short_link','long_link']
+
+	headers = ['codename', 'nationality', 'short_link', 'long_link']
 
 	with open(filename, mode='w', encoding='utf-8-sig') as csv_file:
 		csv_writer = csv.writer(
@@ -29,12 +35,13 @@ def write_drivers_csv(drivers: list[Driver]) -> None:
 
 		for d in drivers:
 			csv_writer.writerow(list(d))
-	
-	print(f'\nDo pliku {filename} zapisano dane o {len(drivers)} kierowcach')
+
+	print(f'\nKierowcy zapisani w pliku {filename}: {len(drivers)}')
+
 
 # Odczytanie danych o kierowcach kierowców z pliku zawierającego wyniki
 def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
-	from db_zapytania import check_driver_exists
+	from common.db_queries.driver_tables import check_driver_exists
 
 	drivers: list[Driver] = list()
 
@@ -44,27 +51,38 @@ def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 
 		print('')
 
-		for row in csv_reader:
+		for row in csv_reader:  # type: dict
 			line_count += 1
 
-			for x in range(1,5):
-				if row[f'DRIVER{x}_FIRSTNAME'] != '':
-					driver_codename='%s %s' % (
-						row[f'DRIVER{x}_FIRSTNAME'].lower(),
-						row[f'DRIVER{x}_SECONDNAME'].lower()
-					)
-					
-					driver_nationality = row[f'DRIVER{x}_COUNTRY']
+			for x in range(1, 5):  # type: int
+				firstname = row.get(f'DRIVER{x}_FIRSTNAME')
+				lastname = row.get(f'DRIVER{x}_SECONDNAME')
 
-					if check_driver_exists(driver_codename, driver_nationality, wiki_id):
-						print(f'{driver_codename} ({driver_nationality}) jest już w bazie.')
-						continue
-
-					driver_short_link='[[%s %s]]' % (
-						row[f'DRIVER{x}_FIRSTNAME'].capitalize(),
-						row[f'DRIVER{x}_SECONDNAME'].capitalize()
+				if (
+						firstname is not None and lastname is not None
+						and firstname != '' and lastname != ''
+				):
+					driver_codename = '%s %s' % (
+						firstname.lower(),
+						lastname.lower()
 					)
-					
+
+					driver_nationality = row.get(f'DRIVER{x}_COUNTRY')
+
+					if driver_nationality is not None:
+						if check_driver_exists(
+							codename=driver_codename,
+							flag=driver_nationality,
+							wikipedia_id=wiki_id
+						):
+							print(f'{driver_codename} ({driver_nationality}) jest już w bazie.')
+							continue
+
+					driver_short_link = '[[%s %s]]' % (
+						firstname.capitalize(),
+						lastname.capitalize()
+					)
+
 					driver = Driver(
 						codename=driver_codename,
 						nationality=driver_nationality,
@@ -73,11 +91,12 @@ def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 
 					drivers.append(driver)
 
-		print(f'\nPrzetworzne linie: {line_count}.\nZnalezioni kierowcy: {len(drivers)}')
-	
+		print(f'\nPrzetworzone linie: {line_count}.\nZnalezieni kierowcy: {len(drivers)}')
+
 	return drivers
 
-# Sprwadzenie czy podany plik z wynikami ma wymagane nazwy kolumn
+
+# Sprawdzenie czy podany plik z wynikami ma wymagane nazwy kolumn
 def verify_results_csv(file) -> bool:
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -85,23 +104,25 @@ def verify_results_csv(file) -> bool:
 		headers = list(csv_dict.keys())
 
 		return (
-			'DRIVER1_FIRSTNAME' in headers and
-			'DRIVER1_SECONDNAME' in headers and
-			'DRIVER1_COUNTRY' in headers and
-			'DRIVER2_FIRSTNAME' in headers and
-			'DRIVER2_SECONDNAME' in headers and
-			'DRIVER2_COUNTRY' in headers
+			'DRIVER1_FIRSTNAME' in headers
+			and 'DRIVER1_SECONDNAME' in headers
+			and 'DRIVER1_COUNTRY' in headers
+			and 'DRIVER2_FIRSTNAME' in headers
+			and 'DRIVER2_SECONDNAME' in headers
+			and 'DRIVER2_COUNTRY' in headers
 		)
+
 
 # Odczytanie ścieżki do pliku z wynikami
 def read_results_csv_path() -> str:
-	text = ''
-
 	while True:
 		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
 
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
+			continue
+		elif not text.lower().endswith('.csv'):
+			print('\nPodany plik nie ma rozszerzenia .csv')
 			continue
 		elif not verify_results_csv(text):
 			print('\nPlik nie posiada wymaganych kolumn.')
@@ -109,9 +130,10 @@ def read_results_csv_path() -> str:
 		else:
 			return text
 
+
 # Tworzenie pliku .csv z danymi kierowców
 def driver_data_to_csv_mode() -> None:
-	from db_zapytania import get_wiki_id
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 	plwiki_id = get_wiki_id('plwiki')
 
@@ -127,6 +149,7 @@ def driver_data_to_csv_mode() -> None:
 
 	write_drivers_csv(drivers)
 
+
 # Sprawdzenie czy podany plik z danymi kierowców ma wymagane kolumny
 def verify_drivers_csv(path: str) -> bool:
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
@@ -135,11 +158,12 @@ def verify_drivers_csv(path: str) -> bool:
 		headers = list(csv_dict.keys())
 
 		return (
-			'codename' in headers and
-			'nationality' in headers and
-			'short_link' in headers and
-			'long_link' in headers
+			'codename' in headers
+			and 'nationality' in headers
+			and 'short_link' in headers
+			and 'long_link' in headers
 		)
+
 
 # Sprawdzenie katalogu czy zawiera pliki z danymi kierowców
 def get_drivers_csv_files_in_dir() -> list[str]:
@@ -150,8 +174,9 @@ def get_drivers_csv_files_in_dir() -> list[str]:
 		if re.search('kierowcy_.*\\.([Cc][Ss][Vv])', f) is not None:
 			if verify_drivers_csv(f):
 				csv_files.append(f)
-	
+
 	return csv_files
+
 
 # Wybór pliku z danymi o kierowcach
 def choose_drivers_csv_file() -> str:
@@ -160,7 +185,7 @@ def choose_drivers_csv_file() -> str:
 	if len(csv_files) > 1:
 		while True:
 			for x in range(0, len(csv_files)):
-				print(f'{x+1}. {csv_files[x]}')
+				print(f'{x + 1}. {csv_files[x]}')
 
 			try:
 				num = int(input(f'Wybór (1-{len(csv_files)}): '))
@@ -168,8 +193,8 @@ def choose_drivers_csv_file() -> str:
 				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
 
-			if num-1 in range(0, len(csv_files)):
-				return csv_files[num-1]
+			if num - 1 in range(0, len(csv_files)):
+				return csv_files[num - 1]
 			else:
 				print('\nBłędna liczba. Spróbuj ponownie.')
 				continue
@@ -180,7 +205,11 @@ def choose_drivers_csv_file() -> str:
 		}
 
 		while True:
-			print(f'\nJedyny znaleziony plik to {csv_files[0]}. Czy chcesz zapisać jego zawartość do bazy danych?')
+			msg = [
+				f'\nJedyny znaleziony plik to {csv_files[0]}.',
+				'Czy chcesz zapisać jego zawartość do bazy danych?'
+			]
+			print(' '.join(msg))
 
 			for x in options:
 				print(f'{x}. {options[x]}')
@@ -190,7 +219,7 @@ def choose_drivers_csv_file() -> str:
 			except ValueError:
 				print('\nPodaj liczbę 1 lub 2.')
 				continue
-			
+
 			if num in options:
 				if num == 1:
 					return csv_files[0]
@@ -206,8 +235,8 @@ def choose_drivers_csv_file() -> str:
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
 			continue
-		if re.search('.*\\.([Cc][Ss][Vv])', text) is None:
-			print('\nPodany plik nie posiada rozszerzenia csv.')
+		if not text.lower().endswith('.csv'):
+			print('\nPodany plik nie posiada rozszerzenia .csv.')
 			continue
 		if not verify_drivers_csv(text):
 			print('\nPodany plik csv nie posiada wymaganych kolumn.')
@@ -215,59 +244,72 @@ def choose_drivers_csv_file() -> str:
 
 		return text
 
+
 # Odczytanie danych o kierowcach
 def read_drivers_csv(path: str) -> list[Driver]:
 	drivers: list[Driver] = list()
-	
+
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
 		line_count = 0
 
-		for row in csv_reader:
-			try:
-				codename = row['codename']
-				nationality = row['nationality']
-				short_link = row['short_link']
-				long_link = row['long_link']
-			except:
-				line_count += 1
-				continue
-
-			drivers.append(Driver(codename, nationality, short_link, long_link))
+		for row in csv_reader:  # type: dict
 			line_count += 1
-		
+
+			codename = row.get('codename')
+			flag = row.get('nationality')
+			short_link = row.get('short_link')
+			long_link = row.get('long_link')
+
+			if (
+				codename is not None
+				and flag is not None
+				and short_link is not None
+				and long_link is not None
+			):
+				drivers.append(
+					Driver(
+						codename,
+						flag,
+						short_link,
+						long_link
+					)
+				)
+
 		print(f'\nPrzetworzone linie: {line_count}.\nZnalezieni kierowcy: {len(drivers)}.')
-	
+
 	return drivers
+
 
 # Zapisanie danych o kierowcach w bazie
 def driver_data_to_db_mode() -> None:
-	from db_zapytania import add_driver
-	from db_zapytania import get_wiki_id
-	from db_zapytania import get_entity_type_id
+	from common.db_queries.driver_tables import add_driver
+	from common.db_queries.wikipedia_table import get_wiki_id
+	from common.db_queries.entity_table import get_entity_type_id
 
-	chosen_file = choose_drivers_csv_file()
+	wiki_id: int | None = get_wiki_id('plwiki')
+
+	if wiki_id is None:
+		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
+		return
+
+	type_id: int | None = get_entity_type_id('driver')
+
+	if type_id is None:
+		print('\nW bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
+		return
+
+	chosen_file: str = choose_drivers_csv_file()
 
 	drivers: list[Driver] = read_drivers_csv(chosen_file)
 
 	if len(drivers) == 0:
 		return
 
-	wiki_id: int | None = get_wiki_id('plwiki')
-
-	type_id: int | None = get_entity_type_id('driver')
-
-	if wiki_id is None:
-		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
-		return
-	
-	if type_id is None:
-		print('\nW bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
-		return
-
+	print()
 	for driver in drivers:
-		if add_driver(driver, wiki_id, type_id):
-			print(f'{driver.codename} - dodano pomyślnie do bazy')
+		add_driver(driver, wiki_id, type_id)
+
 
 # Wybór trybu pracy skryptu
 def choose_mode() -> None:
@@ -276,7 +318,7 @@ def choose_mode() -> None:
 		2: 'Zapisać dane o kierowcach w bazie',
 		3: 'Zakończyć działanie'
 	}
-	
+
 	while True:
 		print('\nWybierz co ma zrobić skrypt.')
 
@@ -287,6 +329,7 @@ def choose_mode() -> None:
 			num = int(input('Wybór: '))
 		except ValueError:
 			print(f'\nPodaj liczbę z przedziału 1-{len(options)}.')
+			continue
 
 		if num not in options:
 			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
@@ -300,9 +343,6 @@ def choose_mode() -> None:
 		elif num == 3:
 			return
 
-# Główna funkcja skryptu
-def main() -> None:
-	choose_mode()
 
 if __name__ == "__main__":
-	main()
+	choose_mode()
