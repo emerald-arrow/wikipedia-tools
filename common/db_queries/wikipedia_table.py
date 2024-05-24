@@ -24,7 +24,7 @@ def get_wiki_versions() -> list[dict[str, str]] | None:
 
 
 # Gets Wikipedia's id by version name (plwiki, enwiki and so on)
-def get_wiki_id(version: str) -> int | None:
+def get_wiki_id(name: str) -> int | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
@@ -32,7 +32,7 @@ def get_wiki_id(version: str) -> int | None:
 
 	with db:
 		query = 'SELECT id FROM wikipedia WHERE version = :version'
-		params = {'version': version}
+		params = {'version': name}
 
 		result = db.execute(query, params).fetchone()
 

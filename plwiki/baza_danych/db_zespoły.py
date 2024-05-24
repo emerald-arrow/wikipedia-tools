@@ -127,7 +127,7 @@ def read_results_csv_path() -> str:
 
 # Tworzenie pliku .csv z danymi zespołów
 def team_data_to_csv_mode() -> None:
-	from db_zapytania import get_wiki_id
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
