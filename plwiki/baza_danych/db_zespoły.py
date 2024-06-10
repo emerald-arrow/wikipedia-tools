@@ -40,7 +40,7 @@ def write_teams_csv(teams: list[Team]) -> None:
 
 
 # Odczytanie danych o zespołach z pliku zawierającego wyniki
-def read_results_csv(file: str, wiki_id: int) -> list[Team]:
+def read_results_csv(file: str, wiki_id: int, championship_id: int) -> list[Team]:
 	from common.db_queries.country_code_table import get_country_iso_alpha3
 	from common.db_queries.team_tables import check_team_exists
 
@@ -70,10 +70,11 @@ def read_results_csv(file: str, wiki_id: int) -> list[Team]:
 
 			if team_country != '?':
 				check_team_db: bool = check_team_exists(
-					team_codename,
-					team_country,
-					team_car_no,
-					wiki_id
+					codename=team_codename,
+					championship_id=championship_id,
+					flag=team_country,
+					car_number=team_car_no,
+					wikipedia_id=wiki_id
 				)
 
 				if check_team_db:
@@ -137,7 +138,9 @@ def team_data_to_csv_mode() -> None:
 
 	path: str = read_results_csv_path()
 
-	teams: list[Team] = read_results_csv(path, plwiki_id)
+	champ_id: int = read_championship()
+
+	teams: list[Team] = read_results_csv(path, plwiki_id, champ_id)
 
 	if len(teams) == 0:
 		return

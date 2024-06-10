@@ -2,10 +2,13 @@ import sqlite3
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.team import Team
+from common.models.aliases import TeamIdEligibility
 
 
 # Checks whether a team is in the database.
-def check_team_exists(codename: str, flag: str, car_number: str, wikipedia_id: int) -> bool | None:
+def check_team_exists(
+	codename: str, championship_id: int, flag: str, car_number: str, wikipedia_id: int
+) -> bool | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
@@ -18,7 +21,8 @@ def check_team_exists(codename: str, flag: str, car_number: str, wikipedia_id: i
 				FROM team t
 				JOIN team_wikipedia tw
 				ON t.id = tw.team_id
-				WHERE codename = :codename
+				WHERE t.codename = :codename
+				AND t.championship_id = :ch_id
 				AND t.flag = :flag
 				AND t.car_number = :car_number
 				AND tw.wikipedia_id = :wiki_id
@@ -26,6 +30,7 @@ def check_team_exists(codename: str, flag: str, car_number: str, wikipedia_id: i
 		'''
 		params = {
 			'codename': codename,
+			'ch_id': championship_id,
 			'flag': flag,
 			'car_number': car_number,
 			'wiki_id': wikipedia_id
@@ -82,6 +87,27 @@ def get_team_data(codename: str, championship_id: int, wiki_id) -> dict[str, any
 				'nationality': result[2],
 				'car_number': result[3]
 			}
+
+
+# Gets team's id and points eligibility
+def get_id_and_scoring(codename: str, championship_id: int) -> TeamIdEligibility:
+	db = db_connection()
+
+	if db is None:
+		return None
+
+	with db:
+		query = '''
+			SELECT id, points_eligible
+			FROM team
+			WHERE codename = :codename
+			AND championship_id = :c_id;
+		'''
+		params = {'codename': codename, 'c_id': championship_id}
+
+		result = db.execute(query, params).fetchone()
+
+		return (None, None) if result is None else (int(result[0]), bool(result[1]))
 
 
 # Adds team's data to the database
@@ -186,7 +212,7 @@ def add_team(team: Team, championship_id: int, wiki_id: int, type_id: int) -> No
 
 			result = db.execute(query, params).fetchone()
 
-			# If team's data is in 'team_wikipedia" table
+			# If team's data is in 'team_wikipedia' table
 			if result is not None:
 				db.execute('ROLLBACK')
 				print('%s already has links to Wikipedia articles in the database: "%s", "%s"' % (
