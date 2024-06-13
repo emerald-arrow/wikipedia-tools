@@ -1,6 +1,6 @@
 import sqlite3
 from common.db_connect import db_connection
-from common.models.driver import Driver
+from common.models.driver import Driver, DbDriver
 
 
 # Checks whether driver's data is in database
@@ -8,6 +8,7 @@ def check_driver_exists(codename: str, flag: str, wikipedia_id: int) -> bool | N
 	db = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
@@ -29,11 +30,12 @@ def check_driver_exists(codename: str, flag: str, wikipedia_id: int) -> bool | N
 		return None if result is None else bool(result[0])
 
 
-# Gets driver's data from the database and refreshes driver's timestamp
-def get_driver_data(codename: str, wiki_id: int) -> dict[str, any] | None:
+# Gets driver's links and flag from the database and refreshes driver's timestamp
+def get_driver_flag_links(codename: str, wiki_id: int) -> dict[str, any] | None:
 	db = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
@@ -67,6 +69,30 @@ def get_driver_data(codename: str, wiki_id: int) -> dict[str, any] | None:
 				'long_link': result[1],
 				'nationality': result[2]
 			}
+
+
+# Gets driver's id, link and flag by codename
+def get_driver_by_codename(codename: str, wiki_id: int) -> DbDriver | None:
+	db = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with (db):
+		query = '''
+			SELECT d.flag, dw.short_link, d.id
+			FROM driver d
+			JOIN driver_wikipedia dw
+			ON d.id = dw.driver_id
+			WHERE codename = :codename
+			AND wikipedia_id = :wiki_id;
+		'''
+		params = {'codename': codename, 'wiki_id': wiki_id}
+
+		result = db.execute(query, params).fetchone()
+
+		return None if result is None else DbDriver(db_id=int(result[2]), flag=result[0], link=result[1])
 
 
 # Adds driver's data to the database
