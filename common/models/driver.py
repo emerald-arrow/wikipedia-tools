@@ -24,3 +24,10 @@ class Driver:
 
     def __iter__(self) -> iter:
         return iter([self.codename, self.nationality, self.short_link, self.long_link])
+
+
+class DbDriver:
+    def __init__(self, db_id: int, flag: str, link: str):
+        self.db_id = db_id
+        self.flag = flag
+        self.link = link
