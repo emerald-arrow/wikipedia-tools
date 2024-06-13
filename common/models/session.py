@@ -2,7 +2,8 @@ from enum import Enum
 
 
 class Session(Enum):
-	FP = 1
-	QUALI = 2
+	PRACTICE = 1
+	QUALIFYING = 2
 	RACE = 3
-	QUALI_HP = 4
+	QUALIFYING_PRE_HP = 4
+	QUALIFYING_POST_HP = 5
