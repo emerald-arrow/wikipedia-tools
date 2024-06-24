@@ -352,8 +352,8 @@ def print_qualifying_post_hp_table(championship: Championship, filepath: str, wi
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_header_reader = csv.DictReader(csv_file, delimiter=';')
 		csv_headers = list(dict(list(csv_header_reader)[0]).keys())
-		q1_headers = [x for x in csv_headers if x.startswith('QP_')]
-		hp_headers = [x for x in csv_headers if x.startswith('HP_')]
+		q1_headers = [x for x in csv_headers if x.startswith('QP')]
+		hp_headers = [x for x in csv_headers if x.startswith('HP')]
 
 	if len(q1_headers) > 0:
 		session_headers.update({'QP': q1_headers})
