@@ -8,7 +8,7 @@ if project_path not in sys.path:
 	sys.path.append(project_path)
 
 if True:  # noqa: E402
-	from common.models.session import Session
+	from common.models.sessions import Session
 	from common.models.championship import Championship
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.team_tables import get_team_data

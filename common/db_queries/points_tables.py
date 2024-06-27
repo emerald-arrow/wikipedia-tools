@@ -1,0 +1,153 @@
+from sqlite3 import Connection
+from common.db_connect import db_connection
+from common.models.sessions import DbSession
+from common.models.styles import Style, StyledStatus, StyledPosition
+
+
+# Pobieranie skali punktowych danej serii
+def get_points_scales(championship_id: int) -> list[float] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with db:
+		query = '''
+			SELECT DISTINCT points_scale
+			FROM points_system
+			WHERE championship_id = :ch_id;
+		'''
+		params = {'ch_id': championship_id}
+
+		result = db.execute(query, params).fetchall()
+
+		points_scales = list()
+
+		if result is not None:
+			for r in result:
+				points_scales.append(float(r[0]))
+
+		return points_scales
+
+
+# Gets sessions that award points in points system
+def get_scoring_sessions(championship_id: int, scale: float) -> list[DbSession] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with db:
+		query = '''
+			SELECT DISTINCT session_id, s.name
+			FROM points_system ps
+			JOIN "session" s
+			ON ps.session_id = s.id
+			WHERE championship_id = :ch_id
+			AND points_scale = :scale;
+		'''
+		params = {'ch_id': championship_id, 'scale': scale}
+
+		result = db.execute(query, params).fetchall()
+
+		sessions: list[DbSession] = list()
+
+		if result is not None:
+			for res in result:
+				sessions.append(
+					DbSession(
+						db_id=int(res[0]),
+						name=res[1]
+					)
+				)
+
+		return list() if result is None else sessions
+
+
+# Gets Wikipedia table-styled nonscoring statuses (retired, not classified, etc.)
+def get_styled_nonscoring_statuses() -> list[StyledStatus] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return
+
+	with db:
+		styled_statuses: list[StyledStatus] = list()
+
+		query = '''
+			SELECT status, background_hex, text_colour_hex, bold, id
+			FROM result_styling
+			WHERE status != "Classified, scoring"
+			AND status != "P1"
+			AND status != "P2"
+			AND status != "P3"
+			AND status != "PP";
+		'''
+
+		result = db.execute(query).fetchall()
+
+		if result is not None:
+			for res in result:
+				styled_statuses.append(
+					StyledStatus(
+						status=res[0],
+						style=Style(
+							db_id=int(res[4]),
+							background=res[1],
+							text=res[2],
+							bold=bool(res[3])
+						)
+					)
+				)
+
+		return list() if result is None else styled_statuses
+
+
+# Gets styled points system
+def get_styled_points_system(championship_id: int, scale: float, session_id: int) -> list[StyledPosition] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return
+
+	with db:
+		points_system: list[StyledPosition] = list()
+
+		query = '''
+			SELECT ps.place, ps.points, rs.background_hex, rs.text_colour_hex, rs.bold, ps.id, rs.id 
+			FROM points_system ps
+			JOIN result_styling rs
+			ON rs.id = ps.result_style_id
+			WHERE championship_id = :champ_id
+			AND points_scale = :scale
+			AND session_id = :s_id
+		'''
+		params = {
+			'champ_id': championship_id,
+			'scale': scale,
+			's_id': session_id
+		}
+
+		result = db.execute(query, params).fetchall()
+
+		if result is not None:
+			for res in result:
+				points_system.append(
+					StyledPosition(
+						db_id=int(res[5]),
+						position=int(res[0]),
+						points=float(res[1]),
+						style=Style(
+							db_id=int(res[6]),
+							background=res[2],
+							text=res[3] if type(res[3]) is str else None,
+							bold=bool(res[4])
+						)
+					)
+				)
+
+		return list() if result is None else points_system
