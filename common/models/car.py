@@ -9,8 +9,8 @@ class Car:
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Car):
             return (
-                    self.codename == other.codename and
-                    self.link == other.link
+                self.codename == other.codename
+                and self.link == other.link
             )
         else:
             return False

@@ -1,7 +1,7 @@
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.sessions import DbSession
-from common.models.styles import Style, StyledStatus, StyledPosition
+from common.models.styles import Style, StyledStatus, StyledPosition, LocalisedAbbreviation
 
 
 # Pobieranie skali punktowych danej serii
@@ -151,3 +151,41 @@ def get_styled_points_system(championship_id: int, scale: float, session_id: int
 				)
 
 		return list() if result is None else points_system
+
+
+# Gets localised abbreviations of nonscoring statuses
+def get_nonscoring_abbreviations(wiki_id: int) -> list[LocalisedAbbreviation] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return
+
+	with db:
+		query = '''
+			SELECT rs.status, ls.code 
+			FROM localised_status ls
+			JOIN result_styling rs
+			ON rs.id = ls.style_id
+			WHERE ls.wikipedia_id = :wiki;
+		'''
+		params = {
+			'wiki': wiki_id
+		}
+
+		result = db.execute(query, params).fetchall()
+
+		if result is not None:
+			abbreviations: list[LocalisedAbbreviation] = list()
+
+			for res in result:
+				abbreviations.append(
+					LocalisedAbbreviation(
+						status=res[0],
+						abbr=res[1]
+					)
+				)
+
+			return abbreviations
+		else:
+			return list()

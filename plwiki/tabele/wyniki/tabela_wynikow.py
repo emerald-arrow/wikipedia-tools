@@ -9,7 +9,7 @@ if project_path not in sys.path:
 
 if True:  # noqa: E402
 	from common.models.sessions import Session
-	from common.models.championship import Championship
+	from common.models.championships import ChampionshipExt
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.team_tables import get_team_data
 	from common.db_queries.driver_tables import get_driver_flag_links
@@ -21,7 +21,7 @@ sys.dont_write_bytecode = True
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników wyścigu
-def print_race_table(championship: Championship, filepath: str, wiki_id: int) -> None:
+def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%;"',
 		'|+ Klasyfikacja wstępna/ostateczna',
@@ -196,7 +196,7 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników kwalifikacji
-def print_qualifying_table(championship: Championship, filepath: str, wiki_id: int) -> None:
+def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -332,7 +332,7 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników sesji kwalifikacyjnej z Hyperpole
-def print_qualifying_post_hp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
+def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -450,7 +450,7 @@ def print_qualifying_post_hp_table(championship: Championship, filepath: str, wi
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników sesji kwalifikacyjnej przed Hyperpole
-def print_qualifying_pre_hp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
+def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -528,7 +528,7 @@ def print_qualifying_pre_hp_table(championship: Championship, filepath: str, wik
 
 
 # Odczytanie pliku .CSV i wypisanie kodu fragmentu tabeli dla wyników sesji treningowych
-def print_fp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
+def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%"',
 		'! Klasa',
@@ -616,7 +616,7 @@ def read_csv_path() -> str:
 
 
 # Odczytanie sesji, której wyniki zawiera plik
-def read_session(championship: Championship) -> Session:
+def read_session(championship: ChampionshipExt) -> Session:
 	if championship.name == 'FIA World Endurance Championship':
 		options: list[dict[str, any]] = [
 			{'name': 'Treningowa/testowa', 'enum': Session.PRACTICE},
@@ -650,7 +650,7 @@ def read_session(championship: Championship) -> Session:
 
 
 # Odczytanie serii wyścigowej, różne serie mogą inaczej nazywać kolumny w plikach .CSV
-def read_series(championships: list[Championship]) -> Championship:
+def read_series(championships: list[ChampionshipExt]) -> ChampionshipExt:
 	print('\nPodaj serię wyścigową, z której pochodzą dane:')
 
 	while True:
@@ -670,7 +670,7 @@ def read_series(championships: list[Championship]) -> Championship:
 
 # Główna funkcja skryptu
 def main() -> None:
-	championship_list: list[Championship] = get_championships()
+	championship_list: list[ChampionshipExt] = get_championships()
 
 	if len(championship_list) == 0:
 		print('Nie znaleziono w bazie żadnych serii wyścigowych.')
@@ -685,7 +685,7 @@ def main() -> None:
 		]
 		print(' '.join(msg))
 
-	championship_data: Championship = read_series(championship_list)
+	championship_data: ChampionshipExt = read_series(championship_list)
 
 	session: Session = read_session(championship_data)
 
