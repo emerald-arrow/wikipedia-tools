@@ -2,6 +2,8 @@ import sqlite3
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.classifications import Classification
+from common.models.results import EntityResults, RoundResult
+from common.models.styles import Style
 
 
 # Gets all classifications of a championship
@@ -16,9 +18,14 @@ def get_classifications_by_champ_id(championship_id: int) -> list[Classification
 
 	with db:
 		query = '''
-			SELECT id, name
-			FROM classification
-			WHERE championship_id = :ch_id
+			SELECT cl.id, t.name, ct.name
+			FROM classification cl
+			JOIN title t
+			ON t.id = cl.title_id
+			JOIN classification_type ct
+			ON ct.id = t.type_id
+			WHERE t.championship_id = :ch_id
+			AND cl.active = 1;
 		'''
 		params = {'ch_id': championship_id}
 
@@ -30,11 +37,135 @@ def get_classifications_by_champ_id(championship_id: int) -> list[Classification
 					Classification(
 						db_id=int(r[0]),
 						name=r[1],
-						championship_id=championship_id
+						championship_id=championship_id,
+						cl_type=r[2]
 					)
 				)
 
 		return classifications
+
+
+# Gets classification's results
+def get_classification_results(classification: Classification, wiki_id: int) -> list[EntityResults] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	entities: list[EntityResults] = list()
+
+	with db:
+		query = '''
+			SELECT DISTINCT entity_id, {entity_table}.flag, {wikipedia_table}.{link_column} {car_no}
+			FROM score
+			JOIN {entity_table}
+			ON {entity_table}.id = score.entity_id
+			JOIN {wikipedia_table}
+			ON {entity_table}.id = {wikipedia_table}.{entity_id}
+			WHERE score.classification_id = :cl_id
+			AND {wikipedia_table}.wikipedia_id = :wiki;
+		'''
+		params = {
+			'cl_id': classification.db_id,
+			'wiki': wiki_id
+		}
+		match classification.cl_type:
+			case 'DRIVERS':
+				query = query.format(
+					entity_table='driver',
+					wikipedia_table='driver_wikipedia',
+					link_column='short_link',
+					entity_id='driver_id',
+					car_no=''
+				)
+			case 'TEAMS':
+				query = query.format(
+					entity_table='team',
+					wikipedia_table='team_wikipedia',
+					link_column='short_link',
+					entity_id='team_id',
+					car_no=', team.car_number'
+				)
+			case 'MANUFACTURERS':
+				query = query.format(
+					entity_table='manufacturer',
+					wikipedia_table='manufacturer_wikipedia',
+					link_column='link',
+					entity_id='manufacturer_id',
+					car_no=''
+				)
+			case _:
+				return None
+
+		result = db.execute(query, params).fetchall()
+
+		for entity_data in result:
+			car_number: int | None = None
+
+			try:
+				car_number = int(entity_data[3])
+			except IndexError:
+				car_number = None
+
+			new_entity = EntityResults(
+						db_id=int(entity_data[0]),
+						flag=entity_data[1],
+						link=entity_data[2],
+						car_no=car_number,
+						points=0
+					)
+
+			query = '''
+				SELECT round_number, ses.name, place, points, rs.background_hex, rs.text_colour_hex, rs.bold 
+				FROM score sc
+				JOIN "session" ses
+				ON ses.id = sc.session_id
+				JOIN result_styling rs
+				ON rs.id = sc.style_id
+				WHERE classification_id = :cl_id
+				AND sc.entity_id = :e_id;
+			'''
+			params = {
+				'cl_id': classification.db_id,
+				'e_id': new_entity.db_id
+			}
+
+			round_results = db.execute(query, params).fetchall()
+
+			scores: list[RoundResult] = list()
+
+			prev_score: RoundResult | None = None
+
+			for res in round_results:
+				new_entity.points += int(res[3])
+
+				score: RoundResult = RoundResult(
+										number=int(res[0]),
+										session=res[1],
+										place=res[2],
+										style=Style(
+											background=res[4],
+											text=res[5],
+											bold=bool(res[6])
+										)
+				)
+
+				if prev_score is not None:
+					if prev_score.number == score.number and prev_score.session == 'QUALIFYING':
+						score.style.bold = prev_score.style.bold
+						scores.remove(prev_score)
+
+				scores.append(score)
+				prev_score = score
+
+			new_entity.results = scores
+
+			entities.append(new_entity)
+
+		entities.sort(key=lambda x: x.points, reverse=True)
+
+		return entities
 
 
 # Checking whether entity under given id can score in given classification

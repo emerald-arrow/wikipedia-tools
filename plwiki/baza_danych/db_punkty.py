@@ -11,9 +11,9 @@ if project_path not in sys.path:
 if True:  # noqa: E402
 	from common.models.classifications import Classification, EligibleClassifications
 	from common.models.manufacturer import Manufacturer
-	from common.models.result_row import ResultRow
+	from common.models.results import ResultRow
 	from common.models.aliases import EntityDict
-	from common.models.championship import Championship
+	from common.models.championships import ChampionshipExt
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import DbDriver
@@ -26,7 +26,7 @@ sys.dont_write_bytecode = True
 def read_championship() -> int | None:
 	from common.db_queries.championship_table import get_championships
 
-	championships: list[Championship] | None = get_championships()
+	championships: list[ChampionshipExt] | None = get_championships()
 
 	if championships is None:
 		return None
