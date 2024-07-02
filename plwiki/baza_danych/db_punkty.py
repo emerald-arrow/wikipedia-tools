@@ -35,7 +35,7 @@ def read_championship() -> int | None:
 		print('Brak mistrzostw w bazie.')
 		return None
 
-	print('Wybierz serię, której klasyfikacje punktowe chcesz wygenerować:')
+	print('\nWybierz serię, której wyniki chcesz dodać do bazy:')
 
 	while True:
 		for x in range(0, len(championships)):
@@ -415,8 +415,36 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 			round_number=num,
 			session_id=session_id
 		):
-			print('Ta runda ma już wyniki tej sesji w bazie.')
-			return None
+			while True:
+				print('\nTa runda ma już wyniki tej sesji w bazie. Czy chcesz je zastąpić?')
+				print('1. Tak\n2. Nie')
+				try:
+					ans = int(input('Wybór (1-2): '))
+				except ValueError:
+					print('\nPodaj liczbę 1 lub 2.')
+					continue
+
+				if ans == 1:
+					from common.db_queries.classification_tables import remove_session_scores
+					print('\nUsuwanie wyników...')
+
+					results: list[bool] = remove_session_scores(
+						classifications=classifications,
+						round_number=num,
+						session_id=session_id
+					)
+
+					if all(results) is True:
+						print('\nWyniki tej sesji zostały usunięte z bazy danych.')
+						return num
+					else:
+						print('\nUsuwanie wyników z bazy danych nie powiodło się.')
+						return None
+				elif ans == 2:
+					print('\nSkrypt zakończy działanie.')
+					return None
+				else:
+					print('\nPodaj liczbę 1 lub 2.')
 		else:
 			return num
 
@@ -508,6 +536,9 @@ def main() -> None:
 	if len(classifications) == 0:
 		print('\nBrak zdefiniowanych klasyfikacji w bazie dla wybranej serii.')
 		return
+
+	# TODO:
+	# Jeśli seria ma klasyfikacje producenckie, to pytać ile samochodów producenta punktuje.
 
 	# Pobranie skali punktowych z bazy danych
 	points_scales: list[float] | None = get_points_scales(championship_id)
