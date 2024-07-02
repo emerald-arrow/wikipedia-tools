@@ -258,3 +258,40 @@ def add_score(
 
 		db.execute('COMMIT')
 		print('Successfully added score to the database.')
+
+
+# Removes results of round's session
+def remove_session_scores(classifications: list[Classification], round_number: int, session_id: int) -> list[bool]:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with db:
+		query = '''
+			DELETE FROM score
+			WHERE classification_id = :classification
+			AND round_number = :round
+			AND session_id = :session;
+		'''
+
+		results: list[bool] = list()
+
+		for cl in classifications:
+			params = {
+				'classification': cl.db_id,
+				'round': round_number,
+				'session': session_id
+			}
+
+			try:
+				db.execute(query, params)
+			except sqlite3.Error as e:
+				print(e.__str__())
+				results.append(False)
+				return results
+
+			results.append(True)
+
+		return results
