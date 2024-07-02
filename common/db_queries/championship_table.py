@@ -70,3 +70,35 @@ def get_championships_with_results() -> list[Championship] | None:
 				)
 
 	return championships
+
+
+# Gets list of championships that have defined classifications in the database
+def get_championships_with_classifications() -> list[Championship] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	championships: list[Championship] = list()
+
+	with db:
+		query = '''
+			SELECT DISTINCT ch.id, ch.name
+			FROM championship ch
+			JOIN title t
+			ON t.championship_id = ch.id;
+		'''
+
+		result = db.execute(query).fetchall()
+
+		if result is not None:
+			for r in result:
+				championships.append(
+					Championship(
+						db_id=int(r[0]),
+						name=r[1],
+					)
+				)
+
+	return championships

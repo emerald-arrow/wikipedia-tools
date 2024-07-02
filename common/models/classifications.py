@@ -9,8 +9,8 @@ class Classification:
 class EligibleClassifications:
     def __init__(
             self, driver_cl: Classification | None = None, manufacturer_cl: Classification | None = None,
-            team_cl: Classification | None = None, driver_position: int | None = None,
-            team_position: int | None = None, manufacturer_position: int | None = None,
+            team_cl: Classification | None = None, driver_position: int | str | None = None,
+            team_position: int | str | None = None, manufacturer_position: int | str | None = None,
             driver_points: float | None = None, team_points: float | None = None,
             manufacturer_points: float | None = None, driver_style_id: int | None = None,
             team_style_id: int | None = None, manufacturer_style_id: int | None = None

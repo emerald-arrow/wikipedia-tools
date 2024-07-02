@@ -24,9 +24,9 @@ sys.dont_write_bytecode = True
 
 # Odczytanie id serii, której klasyfikacje mają zostać wygenerowane
 def read_championship() -> int | None:
-	from common.db_queries.championship_table import get_championships
+	from common.db_queries.championship_table import get_championships_with_classifications
 
-	championships: list[ChampionshipExt] | None = get_championships()
+	championships: list[ChampionshipExt] | None = get_championships_with_classifications()
 
 	if championships is None:
 		return None
@@ -109,7 +109,8 @@ def read_csv_path() -> str:
 
 # Wyszukiwanie odpowiednich klasyfikacji
 def find_classifications(
-		category: str, team_id: int, classifications: list[Classification]
+	category: str, team_id: int, driver_ids: list[int],
+	manufacturer_id: int | None, classifications: list[Classification]
 ) -> EligibleClassifications:
 	from common.db_queries.classification_tables import check_points_eligibility
 
@@ -117,13 +118,27 @@ def find_classifications(
 
 	for cl in classifications:
 		if re.search(f'{category}', cl.name, re.IGNORECASE):
-			if check_points_eligibility(cl.db_id, team_id):
-				if re.search('driver', cl.name, re.IGNORECASE):
+			if re.search('driver', cl.name, re.IGNORECASE):
+				checks: list[bool] = list()
+
+				for drv_id in driver_ids:
+					checks.append(check_points_eligibility(cl.db_id, drv_id))
+
+				if all(checks) is True:
 					eligible_cl.driver_cl = cl
-				elif re.search('manufacturer', cl.name, re.IGNORECASE):
-					eligible_cl.manufacturer_cl = cl
-				elif re.search('team', cl.name, re.IGNORECASE):
-					eligible_cl.team_cl = cl
+
+			if (
+				manufacturer_id is not None
+				and re.search('manufacturer', cl.name, re.IGNORECASE)
+				and check_points_eligibility(cl.db_id, manufacturer_id)
+			):
+				eligible_cl.manufacturer_cl = cl
+
+			if (
+				re.search('team', cl.name, re.IGNORECASE)
+				and check_points_eligibility(cl.db_id, team_id)
+			):
+				eligible_cl.team_cl = cl
 
 	return eligible_cl
 
@@ -138,7 +153,7 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 	not_found: EntityDict = {'teams': [], 'drivers': []}
 	manufacturers: list[Manufacturer] = get_manufacturers()
 
-	championship_id: int = classifications[0].db_id
+	championship_id: int = classifications[0].championship_id
 
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -149,7 +164,6 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 			row_drivers: list[DbDriver] = list()
 
 			try:
-				row_position = row['POSITION']
 				row_car_no = row['NUMBER']
 				row_team = row['TEAM']
 				row_category = row['CLASS']
@@ -159,9 +173,9 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 				error_text = [
 					'\nBłąd podczas czytania danych.',
 					'W podanym pliku brakuje któregoś z nagłówków:',
-					'POSITION, NUMBER, TEAM, CLASS, STATUS lub VEHICLE.\n'
+					'NUMBER, TEAM, CLASS, STATUS lub VEHICLE.'
 				]
-				print(' '.join(error_text))
+				print(*error_text, sep=' ')
 				return []
 
 			codename = f'#{row_car_no} {row_team}'
@@ -171,26 +185,12 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 				championship_id
 			)
 
-			if type(row_db_team_id) is not int:
-				not_found['teams'].append(codename)
-				continue
-
 			if not can_score:
 				continue
 
-			eligible_cls: EligibleClassifications = find_classifications(
-				row_category,
-				row_db_team_id,
-				classifications
-			)
-
-			row_manufacturer = None
-
-			if eligible_cls.manufacturer_cl is not None:
-				for m in manufacturers:
-					if re.search(m.codename, row_vehicle, re.IGNORECASE):
-						row_manufacturer = m
-						manufacturers.pop(manufacturers.index(m))
+			if type(row_db_team_id) is not int:
+				not_found['teams'].append(codename)
+				continue
 
 			if 'DRIVER_1' in row:
 				driver_columns: str = 'DRIVER_{0}'
@@ -201,7 +201,7 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 					'\nBłąd podczas czytania danych.',
 					'W podanym pliku brakuje kolumny z danymi kierowców.'
 				]
-				print(' '.join(msg))
+				print(*msg, sep=' ')
 				return []
 
 			for x in range(1, 5):
@@ -217,6 +217,25 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 						not_found['drivers'].append(driver)
 					else:
 						row_drivers.append(driver_data)
+
+			row_manufacturer: Manufacturer | None = None
+
+			for m in manufacturers:
+				if re.search(m.codename, row_vehicle, re.IGNORECASE):
+					row_manufacturer = m
+
+			eligible_cls: EligibleClassifications = find_classifications(
+				category=row_category,
+				team_id=row_db_team_id,
+				driver_ids=[x.db_id for x in row_drivers],
+				manufacturer_id=m.db_id,
+				classifications=classifications
+			)
+
+			# To powinno być bardziej zróżnicowane pod względem systemu punktowego,
+			# np. najlepszy punktuje, dwóch, wszyscy
+			if eligible_cls.manufacturer_cl is not None:
+				manufacturers.pop(manufacturers.index(row_manufacturer))
 
 			row_data = ResultRow(
 				drivers=row_drivers,
@@ -249,8 +268,8 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 
 # Wyszukanie stylu kolorowania dla wyniku
 def find_result_style(
-		status: str, position: int, scoring_styles: list[StyledPosition],
-		nonscoring_styles: list[StyledStatus], session: str
+	status: str, position: int, scoring_styles: list[StyledPosition],
+	nonscoring_styles: list[StyledStatus], session: str
 ) -> tuple[int | None, float] | None:
 	match status:
 		case 'Classified':
@@ -300,9 +319,9 @@ def find_result_style(
 
 # Wyliczenie pozycji w klasyfikacjach i dobranie stylów kolorowania
 def calculate_classifications_positions(
-		rows: list[ResultRow], classifications: list[Classification],
-		scoring_styles: list[StyledPosition], nonscoring_styles: list[StyledStatus],
-		session: str
+	rows: list[ResultRow], classifications: list[Classification],
+	scoring_styles: list[StyledPosition], nonscoring_styles: list[StyledStatus],
+	session: str
 ) -> list[ResultRow]:
 	positions: dict[str, int] = dict()
 	nonscoring_statuses: list[str] = [x.status for x in nonscoring_styles]
@@ -331,6 +350,8 @@ def calculate_classifications_positions(
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.team_position = position
 						positions[f'{row.eligible_classifications.team_cl.name}'] += 1
+					else:
+						row.eligible_classifications.team_position = row.status
 		if row.eligible_classifications.manufacturer_cl is not None:
 			position = positions.get(row.eligible_classifications.manufacturer_cl.name)
 
@@ -351,6 +372,8 @@ def calculate_classifications_positions(
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.manufacturer_position = position
 						positions[f'{row.eligible_classifications.manufacturer_cl.name}'] += 1
+					else:
+						row.eligible_classifications.manufacturer_position = row.status
 		if row.eligible_classifications.driver_cl.name is not None:
 			position = positions.get(row.eligible_classifications.driver_cl.name)
 
@@ -371,7 +394,8 @@ def calculate_classifications_positions(
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.driver_position = position
 						positions[f'{row.eligible_classifications.driver_cl.name}'] += 1
-
+					else:
+						row.eligible_classifications.driver_position = row.status
 	return rows
 
 
@@ -381,15 +405,15 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 
 	while True:
 		try:
-			num = int(input('\nPodaj numer rundy, której wyniki są w pliku: '))
+			num = int(input('\nPodaj numer rundy w sezonie, której wyniki są w pliku: '))
 		except ValueError:
 			print('Podaj liczbę naturalną.')
 			continue
 
 		if check_round_session(
-				classification_id=classifications[0].db_id,
-				round_number=num,
-				session_id=session_id
+			classification_id=classifications[0].db_id,
+			round_number=num,
+			session_id=session_id
 		):
 			print('Ta runda ma już wyniki tej sesji w bazie.')
 			return None
@@ -407,8 +431,8 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 		drivers_result_added: bool = False
 
 		if (
-				row.eligible_classifications.driver_cl is not None
-				and row.eligible_classifications.driver_style_id is not None
+			row.eligible_classifications.driver_cl is not None
+			and row.eligible_classifications.driver_style_id is not None
 		):
 			for driver in row.drivers:
 				add_score(
@@ -422,8 +446,8 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 				)
 				drivers_result_added = True
 		if (
-				row.eligible_classifications.manufacturer_cl is not None
-				and row.eligible_classifications.manufacturer_style_id is not None
+			row.eligible_classifications.manufacturer_cl is not None
+			and row.eligible_classifications.manufacturer_style_id is not None
 		):
 			if row.manufacturer is not None:
 				add_score(
@@ -436,9 +460,9 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 					style_id=row.eligible_classifications.manufacturer_style_id
 				)
 		if (
-				row.eligible_classifications.team_cl is not None
-				and row.eligible_classifications.team_style_id is not None
-				and drivers_result_added is True
+			row.eligible_classifications.team_cl is not None
+			and row.eligible_classifications.team_style_id is not None
+			and drivers_result_added is True
 		):
 			add_score(
 				classification_id=row.eligible_classifications.team_cl.db_id,
