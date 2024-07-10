@@ -4,7 +4,7 @@ from common.models.driver import Driver, DbDriver
 
 
 # Checks whether driver's data is in database
-def check_driver_exists(codename: str, flag: str, wikipedia_id: int) -> bool | None:
+def check_driver_exists(codename: str, wikipedia_id: int) -> bool | None:
 	db = db_connection()
 
 	if db is None:
@@ -19,11 +19,10 @@ def check_driver_exists(codename: str, flag: str, wikipedia_id: int) -> bool | N
 				JOIN driver_wikipedia dw
 				ON d.id = dw.driver_id
 				WHERE d.codename = :codename
-				AND d.flag = :flag
 				AND dw.wikipedia_id = :wiki_id
 			);
 		'''
-		params = {'codename': codename, 'flag': flag, 'wiki_id': wikipedia_id}
+		params = {'codename': codename, 'wiki_id': wikipedia_id}
 
 		result = db.execute(query, params).fetchone()
 
