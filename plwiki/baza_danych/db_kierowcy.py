@@ -72,10 +72,9 @@ def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 					if driver_nationality is not None:
 						if check_driver_exists(
 							codename=driver_codename,
-							flag=driver_nationality,
 							wikipedia_id=wiki_id
 						):
-							print(f'{driver_codename} ({driver_nationality}) jest już w bazie.')
+							print(f'{driver_codename} jest już w bazie.')
 							continue
 
 					driver_short_link = '[[%s %s]]' % (
