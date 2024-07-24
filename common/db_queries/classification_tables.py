@@ -168,7 +168,27 @@ def get_classification_results(classification: Classification, wiki_id: int) -> 
 		return entities
 
 
-# Checking whether entity under given id can score in given classification
+# Gets how many cars score in manufacturer's classification (returns number values or 'ALL')
+def get_manufacturer_scoring_cars(classification_id: int) -> str | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with db:
+		query = '''
+			SELECT scoring_cars
+			FROM manufacturer_classification
+			WHERE manufacturer_classification_id = :id;
+		'''
+
+		result = db.execute(query, {'id': classification_id}).fetchone()
+
+		return '' if result is None else result[0]
+
+
+# Checks whether entity under given id can score in given classification
 def check_points_eligibility(classification_id: int, entity_id: int) -> bool | None:
 	db: Connection | None = db_connection()
 
@@ -261,7 +281,9 @@ def add_score(
 
 
 # Removes results of round's session
-def remove_session_scores(classifications: list[Classification], round_number: int, session_id: int) -> list[bool]:
+def remove_session_scores(
+	classifications: list[Classification], round_number: int, session_id: int
+) -> list[bool] | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
