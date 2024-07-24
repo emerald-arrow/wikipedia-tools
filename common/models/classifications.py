@@ -27,3 +27,9 @@ class EligibleClassifications:
         self.driver_style_id = driver_style_id
         self.team_style_id = team_style_id
         self.manufacturer_style_id = manufacturer_style_id
+
+
+class ClassificationScoring:
+    def __init__(self, name: str, scoring_entities: int):
+        self.name = name
+        self.scoring_entities = scoring_entities

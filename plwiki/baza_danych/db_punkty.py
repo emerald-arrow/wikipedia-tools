@@ -9,8 +9,8 @@ if project_path not in sys.path:
 	sys.path.append(project_path)
 
 if True:  # noqa: E402
-	from common.models.classifications import Classification, EligibleClassifications
-	from common.models.manufacturer import Manufacturer
+	from common.models.classifications import Classification, EligibleClassifications, ClassificationScoring
+	from common.models.manufacturer import Manufacturer, ManufacturerScoringCars
 	from common.models.results import ResultRow
 	from common.models.aliases import EntityDict
 	from common.models.championships import ChampionshipExt
@@ -52,6 +52,41 @@ def read_championship() -> int | None:
 			continue
 		else:
 			return championships[num - 1].db_id
+
+
+# Pobranie liczby punktujących aut w klasyfikacjach producentów
+def get_oem_scoring_cars(classifications: list[Classification]) -> list[ClassificationScoring] | None:
+	from common.db_queries.classification_tables import get_manufacturer_scoring_cars
+
+	classifications_scoring_cars: list[ClassificationScoring] = list()
+
+	for classification in classifications:
+		if classification.cl_type == 'MANUFACTURERS':
+			cars = get_manufacturer_scoring_cars(classification.db_id)
+
+			if cars is not None and cars != '':
+				try:
+					classifications_scoring_cars.append(
+						ClassificationScoring(
+							name=classification.name,
+							scoring_entities=int(cars)
+						)
+					)
+				except ValueError:
+					# Liczba 100 dla wartości 'ALL' z tabeli zawierającej dane o punktujących autach
+					classifications_scoring_cars.append(
+						ClassificationScoring(
+							name=classification.name,
+							scoring_entities=100
+						)
+					)
+			elif cars == '':
+				print(f'{classification.name}: nie znaleziono liczby punktujących aut w tej klasyfikacji')
+				return None
+			else:
+				return None
+
+	return classifications_scoring_cars
 
 
 # Odczytanie skali punktowej
@@ -110,7 +145,7 @@ def read_csv_path() -> str:
 # Wyszukiwanie odpowiednich klasyfikacji
 def find_classifications(
 	category: str, team_id: int, driver_ids: list[int],
-	manufacturer_id: int | None, classifications: list[Classification]
+	manufacturer_id: int | None, classifications: list[Classification],
 ) -> EligibleClassifications:
 	from common.db_queries.classification_tables import check_points_eligibility
 
@@ -130,10 +165,9 @@ def find_classifications(
 			if (
 				manufacturer_id is not None
 				and re.search('manufacturer', cl.name, re.IGNORECASE)
-				and check_points_eligibility(cl.db_id, manufacturer_id)
+				and check_points_eligibility(cl.db_id, team_id)
 			):
 				eligible_cl.manufacturer_cl = cl
-
 			if (
 				re.search('team', cl.name, re.IGNORECASE)
 				and check_points_eligibility(cl.db_id, team_id)
@@ -144,14 +178,20 @@ def find_classifications(
 
 
 # Odczytanie danych z pliku csv zawierającego wyniki
-def read_results_csv(path: str, classifications: list[Classification], wiki_id: int) -> list[ResultRow]:
+def read_results_csv(
+	path: str, classifications: list[Classification], manufacturer_classifications_num: int,
+	wiki_id: int
+) -> list[ResultRow]:
 	from common.db_queries.team_tables import get_id_and_scoring
 	from common.db_queries.driver_tables import get_driver_by_codename
 	from common.db_queries.manufacturer_table import get_manufacturers
 
 	rows: list[ResultRow] = list()
 	not_found: EntityDict = {'teams': [], 'drivers': []}
-	manufacturers: list[Manufacturer] = get_manufacturers()
+	manufacturers: list[Manufacturer] | None = None
+
+	if manufacturer_classifications_num > 0:
+		manufacturers = get_manufacturers()
 
 	championship_id: int = classifications[0].championship_id
 
@@ -220,28 +260,25 @@ def read_results_csv(path: str, classifications: list[Classification], wiki_id: 
 
 			row_manufacturer: Manufacturer | None = None
 
-			for m in manufacturers:
-				if re.search(m.codename, row_vehicle, re.IGNORECASE):
-					row_manufacturer = m
+			if manufacturers is not None and len(manufacturers) > 0:
+				for m in manufacturers:
+					if re.search(m.codename, row_vehicle, re.IGNORECASE):
+						row_manufacturer = m
+						break
 
-			eligible_cls: EligibleClassifications = find_classifications(
+			eligible_cls = find_classifications(
 				category=row_category,
 				team_id=row_db_team_id,
 				driver_ids=[x.db_id for x in row_drivers],
-				manufacturer_id=m.db_id,
+				manufacturer_id=row_manufacturer.db_id if row_manufacturer is not None else None,
 				classifications=classifications
 			)
-
-			# To powinno być bardziej zróżnicowane pod względem systemu punktowego,
-			# np. najlepszy punktuje, dwóch, wszyscy
-			if eligible_cls.manufacturer_cl is not None:
-				manufacturers.pop(manufacturers.index(row_manufacturer))
 
 			row_data = ResultRow(
 				drivers=row_drivers,
 				status=row_status,
 				db_team_id=row_db_team_id,
-				manufacturer=row_manufacturer,
+				manufacturer=row_manufacturer if eligible_cls.manufacturer_cl is not None else None,
 				eligible_classifications=eligible_cls
 			)
 
@@ -321,22 +358,42 @@ def find_result_style(
 def calculate_classifications_positions(
 	rows: list[ResultRow], classifications: list[Classification],
 	scoring_styles: list[StyledPosition], nonscoring_styles: list[StyledStatus],
-	session: str
+	session: str, oem_classifications_scoring: list[ClassificationScoring]
 ) -> list[ResultRow]:
+	from common.db_queries.manufacturer_table import get_manufacturers
+
 	positions: dict[str, int] = dict()
 	nonscoring_statuses: list[str] = [x.status for x in nonscoring_styles]
+
+	manufacturers_scoring_cars: list[ManufacturerScoringCars] = list()
+
+	if len(oem_classifications_scoring) > 0:
+		manufacturers: list[Manufacturer] | None = get_manufacturers()
+
+		if manufacturers is None:
+			return list()
+
+		if len(manufacturers) == 0:
+			print('Lista producentów jest pusta.')
+			return list()
+
+		for oem in manufacturers:  # type: Manufacturer
+			manufacturers_scoring_cars.append(ManufacturerScoringCars(
+				manufacturer=oem,
+				classifications=oem_classifications_scoring
+			))
 
 	for cl in classifications:
 		positions.update({f'{cl.name}': 1})
 
 	for row in rows:  # type: ResultRow
 		if row.eligible_classifications.team_cl is not None:
-			position = positions.get(row.eligible_classifications.team_cl.name)
+			team_position = positions.get(row.eligible_classifications.team_cl.name)
 
 			# Dobieranie stylów i punktów
 			found: tuple[int | None, float] | None = find_result_style(
 				status=row.status,
-				position=position,
+				position=team_position,
 				scoring_styles=scoring_styles,
 				nonscoring_styles=nonscoring_styles,
 				session=session
@@ -348,39 +405,63 @@ def calculate_classifications_positions(
 					row.eligible_classifications.team_points = found[1]
 
 					if row.status not in nonscoring_statuses:
-						row.eligible_classifications.team_position = position
+						row.eligible_classifications.team_position = team_position
 						positions[f'{row.eligible_classifications.team_cl.name}'] += 1
 					else:
 						row.eligible_classifications.team_position = row.status
 		if row.eligible_classifications.manufacturer_cl is not None:
-			position = positions.get(row.eligible_classifications.manufacturer_cl.name)
+			oem_position = positions.get(row.eligible_classifications.manufacturer_cl.name)
 
-			# Dobieranie stylów i punktów
-			found: tuple[int | None, float] | None = find_result_style(
-				status=row.status,
-				position=position,
-				scoring_styles=scoring_styles,
-				nonscoring_styles=nonscoring_styles,
-				session=session
+			oem_scoring: ManufacturerScoringCars = next(
+				(x for x in manufacturers_scoring_cars if x.manufacturer.db_id == row.manufacturer.db_id)
 			)
 
-			if found is not None:
-				if found[0] is not None:
-					row.eligible_classifications.manufacturer_style_id = found[0]
-					row.eligible_classifications.manufacturer_points = found[1]
+			scoring_found: ClassificationScoring = next(
+				(x for x in oem_scoring.classifications if x.name == row.eligible_classifications.manufacturer_cl.name)
+			)
 
-					if row.status not in nonscoring_statuses:
-						row.eligible_classifications.manufacturer_position = position
-						positions[f'{row.eligible_classifications.manufacturer_cl.name}'] += 1
-					else:
-						row.eligible_classifications.manufacturer_position = row.status
-		if row.eligible_classifications.driver_cl.name is not None:
-			position = positions.get(row.eligible_classifications.driver_cl.name)
+			# Jeśli auto(-a) producenta może(-gą) jeszcze punktować
+			if scoring_found.scoring_entities > 0:
+				manufacturers_scoring_cars.pop(
+					manufacturers_scoring_cars.index(oem_scoring)
+				)
+
+				oem_scoring.classifications.pop(
+					oem_scoring.classifications.index(scoring_found)
+				)
+
+				scoring_found.scoring_entities -= 1
+
+				oem_scoring.classifications.append(scoring_found)
+
+				manufacturers_scoring_cars.append(oem_scoring)
+
+				# Dobieranie stylów i punktów
+				found: tuple[int | None, float] | None = find_result_style(
+					status=row.status,
+					position=oem_position,
+					scoring_styles=scoring_styles,
+					nonscoring_styles=nonscoring_styles,
+					session=session
+				)
+
+				if found is not None:
+					if found[0] is not None:
+						row.eligible_classifications.manufacturer_style_id = found[0]
+						row.eligible_classifications.manufacturer_points = found[1]
+
+						if row.status not in nonscoring_statuses:
+							row.eligible_classifications.manufacturer_position = oem_position
+						else:
+							row.eligible_classifications.manufacturer_position = row.status
+			positions[f'{row.eligible_classifications.manufacturer_cl.name}'] += 1
+		if row.eligible_classifications.driver_cl is not None:
+			driver_position = positions.get(row.eligible_classifications.driver_cl.name)
 
 			# Dobieranie stylów i punktów
 			found: tuple[int | None, float] | None = find_result_style(
 				status=row.status,
-				position=position,
+				position=driver_position,
 				scoring_styles=scoring_styles,
 				nonscoring_styles=nonscoring_styles,
 				session=session
@@ -392,7 +473,7 @@ def calculate_classifications_positions(
 					row.eligible_classifications.driver_points = found[1]
 
 					if row.status not in nonscoring_statuses:
-						row.eligible_classifications.driver_position = position
+						row.eligible_classifications.driver_position = driver_position
 						positions[f'{row.eligible_classifications.driver_cl.name}'] += 1
 					else:
 						row.eligible_classifications.driver_position = row.status
@@ -433,6 +514,9 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 						round_number=num,
 						session_id=session_id
 					)
+
+					if results is None:
+						return None
 
 					if all(results) is True:
 						print('\nWyniki tej sesji zostały usunięte z bazy danych.')
@@ -514,18 +598,20 @@ def main() -> None:
 		get_styled_nonscoring_statuses,
 		get_styled_points_system
 	)
+	cannot_continue_error: str = '\nSkrypt nie może kontynuować działania.'
 
 	# Pobranie id polskiej wersji Wikipedii z bazy danych
 	plwiki_id = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
-		print('Nie udało się pobrać id polskiej wersji Wikipedii z bazy danych.')
+		print('Nie udało się pobrać id polskiej wersji Wikipedii z bazy danych.' + cannot_continue_error)
 		return
 
 	# Odczytanie id serii wyścigowej
 	championship_id: int | None = read_championship()
 
 	if championship_id is None:
+		print(cannot_continue_error)
 		return
 
 	# Pobranie klasyfikacji punktowych z bazy danych
@@ -534,16 +620,21 @@ def main() -> None:
 	)
 
 	if len(classifications) == 0:
-		print('\nBrak zdefiniowanych klasyfikacji w bazie dla wybranej serii.')
+		print('\nBrak zdefiniowanych klasyfikacji w bazie dla wybranej serii.' + cannot_continue_error)
 		return
 
-	# TODO:
-	# Jeśli seria ma klasyfikacje producenckie, to pytać ile samochodów producenta punktuje.
+	# Pobranie danych o punktujących autach w klasyfikacjach producentów (o ile takowe istnieją)
+	oem_scoring_cars: list[ClassificationScoring] | None = get_oem_scoring_cars(classifications)
+
+	if oem_scoring_cars is None:
+		print(cannot_continue_error)
+		return
 
 	# Pobranie skali punktowych z bazy danych
 	points_scales: list[float] | None = get_points_scales(championship_id)
 
 	if points_scales is None:
+		print(cannot_continue_error)
 		return
 
 	if len(points_scales) == 0:
@@ -558,10 +649,12 @@ def main() -> None:
 	sessions: list[DbSession] | None = get_scoring_sessions(championship_id, scale)
 
 	if sessions is None:
+		print(cannot_continue_error)
 		return
 
 	if len(sessions) == 0:
 		print('\nW żadnej z sesji nie są przyznawane punkty.')
+		print(cannot_continue_error)
 		return
 	elif len(sessions) == 1:
 		session: DbSession = sessions[0]
@@ -572,13 +665,14 @@ def main() -> None:
 	round_num: int | None = read_round_number(classifications, session.db_id)
 
 	if round_num is None:
+		print(cannot_continue_error)
 		return
 
 	# Pobranie niepunktowanych statusów, takich jak niesklasyfikowany itp., razem ze stylami kolorowania tabeli
 	nonscoring_statuses: list[StyledStatus] = get_styled_nonscoring_statuses()
 
 	if len(nonscoring_statuses) == 0 and session.name == 'RACE':
-		print('\nNie znaleziono styli wyników wyścigu.')
+		print('\nNie znaleziono styli wyników wyścigu.' + cannot_continue_error)
 		return
 
 	# Pobranie systemu punktowego razem ze stylami kolorowania tabeli
@@ -589,7 +683,7 @@ def main() -> None:
 	)
 
 	if len(styled_positions) == 0:
-		print('\nNie znaleziono styli wyników.')
+		print('\nNie znaleziono styli wyników.' + cannot_continue_error)
 		return
 
 	# Odczytanie ścieżki do pliku z wynikami
@@ -599,10 +693,12 @@ def main() -> None:
 	rows: list[ResultRow] = read_results_csv(
 		path=path,
 		classifications=classifications,
+		manufacturer_classifications_num=len(oem_scoring_cars),
 		wiki_id=plwiki_id
 	)
 
 	if len(rows) == 0:
+		print(cannot_continue_error)
 		return
 
 	# Wyliczenie zajętych pozycji w klasyfikacjach mistrzowskich i znalezienie styli wyników
@@ -611,8 +707,13 @@ def main() -> None:
 		classifications=classifications,
 		scoring_styles=styled_positions,
 		nonscoring_styles=nonscoring_statuses,
-		session=session.name
+		session=session.name,
+		oem_classifications_scoring=oem_scoring_cars
 	)
+
+	if len(rows) == 0:
+		print(cannot_continue_error)
+		return
 
 	# Dodanie wyników do bazy danych
 	add_results_to_db(rows, round_num, session)
