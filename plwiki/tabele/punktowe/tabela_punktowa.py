@@ -133,7 +133,10 @@ def read_round_numbers() -> tuple[int, int]:
 
 
 # Wypisanie klasyfikacji
-def print_classification(entities: list[EntityResults], rounds_held: int, season_rounds: int, wiki_id: int) -> None:
+def print_classification(
+	entities: list[EntityResults], rounds_held: int, season_rounds: int, wiki_id: int,
+	rowspan: int
+) -> None:
 	from common.db_queries.points_tables import get_nonscoring_abbreviations
 
 	abbr_list: list[LocalisedAbbreviation] = get_nonscoring_abbreviations(wiki_id)
@@ -150,42 +153,82 @@ def print_classification(entities: list[EntityResults], rounds_held: int, season
 		elif prev_entity is not None and prev_entity.results != entity.results:
 			position += 1
 
-		print(f'! {position}')
+		name_cell: list[str] = list()
+
+		if rowspan == 1:
+			print(f'! {position}')
+			name_cell.append('| align="left"')
+		else:
+			print(f'! rowspan="{rowspan}" | {position}')
+			name_cell.append(f'| align="left" rowspan="{rowspan}"')
 
 		if entity.car_no is not None:
-			print(f'| align="left" | {{{{Flaga|{entity.flag}}}}} #{entity.car_no} {entity.link}')
+			name_cell.append(f' | {{{{Flaga|{entity.flag}}}}} #{entity.car_no} {entity.link}')
 		else:
-			print(f'| align="left" | {{{{Flaga|{entity.flag}}}}} {entity.link}')
+			name_cell.append(f' | {{{{Flaga|{entity.flag}}}}} {entity.link}')
 
-		for x in range(season_rounds):
-			if x + 1 <= rounds_held:
-				round_result: RoundResult | None = next((el for el in entity.results if el.number == x + 1), None)
+		print(*name_cell, sep='')
 
-				if round_result is not None:
-					style = f'background:#{round_result.style.background}'
+		result_cells: list[list[str]] = list()
 
-					if round_result.style.text is not None:
-						style += f'; color:#{round_result.style.text}'
+		cars_range: range = range(rowspan)
 
-					try:
-						place = int(round_result.place)
-					except (ValueError, TypeError):
-						place = next(
-							(abbr.abbreviation for abbr in abbr_list if abbr.status == round_result.place),
-							None
-						)
+		for i in cars_range:
+			result_cells.insert(i, list())
 
-					if round_result.style.bold:
-						print(f'| style="{style}" | \'\'\'{place}\'\'\'')
-					else:
-						print(f'| style="{style}" | {place}')
+		for x in range(1, season_rounds + 1):
+			if x <= rounds_held:
+				round_results: list[RoundResult] = [
+					el for el in entity.results if el.number == x
+				]
+
+				if len(round_results) == 0:
+					for j in cars_range:
+						result_cells[j].append('| –')
 				else:
-					print('| –')
-			else:
-				print('|')
+					retrieved_num: int = 0
 
-		print(f'! {entity.points}')
-		print('|-')
+					for result in round_results:
+						style: str = f'background:#{result.style.background}'
+
+						if result.style.text is not None:
+							style += f'; color:#{result.style.text}'
+
+						try:
+							place: int | None = int(result.place)
+						except (ValueError, TypeError):
+							place = next(
+								(abbr.abbreviation for abbr in abbr_list if abbr.status == result.place),
+								None
+							)
+
+						if result.style.bold is not None and result.style.bold is not False:
+							cell: str = f'| style="{style}" | \'\'\'{place}\'\'\''
+						else:
+							cell: str = f'| style="{style}" | {place}'
+
+						result_cells[retrieved_num].append(cell)
+
+						retrieved_num += 1
+
+					while retrieved_num != rowspan:
+						result_cells[retrieved_num].append('| –')
+
+						retrieved_num += 1
+			else:
+				for a in cars_range:
+					result_cells[a].append('|')
+
+		if rowspan == 1:
+			print(*result_cells[0], sep='\n')
+			print(f'! {entity.points}')
+			print('|-')
+		else:
+			for k in cars_range:
+				print(*result_cells[k], sep='\n')
+				if k == 0:
+					print(f'! rowspan="{rowspan}" | {entity.points}')
+				print('|-')
 
 		prev_entity = entity
 
@@ -193,7 +236,10 @@ def print_classification(entities: list[EntityResults], rounds_held: int, season
 # Główna funkcja skryptu
 def main() -> None:
 	from common.db_queries.wikipedia_table import get_wiki_id
-	from common.db_queries.classification_tables import get_classification_results
+	from common.db_queries.classification_tables import (
+		get_classification_results,
+		get_manufacturer_scoring_cars
+	)
 
 	# Znalezienie id polskiej wersji Wikipedii
 	plwiki_id: int | None = get_wiki_id('plwiki')
@@ -214,18 +260,42 @@ def main() -> None:
 	if classification is None:
 		return
 
+	rowspan: int = 1
+
+	if classification.cl_type == 'MANUFACTURERS':
+		cars: str = get_manufacturer_scoring_cars(classification.db_id)
+
+		if cars != '' and cars != 'ALL':
+			rowspan = int(cars)
+		elif cars == 'ALL':
+			rowspan = 10
+
 	# Pobranie listy kierowców/producentów/zespołów z wynikami
 	results: list[EntityResults] = get_classification_results(classification, plwiki_id)
 
 	# Odczytanie liczby rozegranych rund i rund w całym sezonie
+	# TODO:
+	# Do zastąpienia odczytywaniem liczby rozegranych rund i ogółem w sezonie z bazy danych
 	race_numbers: tuple[int, int] = read_round_numbers()
+
+	if rowspan > 1 and classification.cl_type == 'MANUFACTURERS':
+		import time
+
+		msg: list[str] = [
+			'\nW przypadku zdobycia pole position przez producenta',
+			'pogrubiony zostanie wynik auta najwyżej sklasyfikowanego na mecie wyścigu.'
+		]
+		print(*msg, sep=' ')
+
+		time.sleep(3)
 
 	# Wypisanie klasyfikacji punktowej
 	print_classification(
 		entities=results,
 		rounds_held=race_numbers[0],
 		season_rounds=race_numbers[1],
-		wiki_id=plwiki_id
+		wiki_id=plwiki_id,
+		rowspan=rowspan
 	)
 
 
