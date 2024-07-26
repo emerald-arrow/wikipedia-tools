@@ -1,6 +1,10 @@
 import sqlite3
+import sys
 from sqlite3 import Connection
 from pathlib import Path
+
+# Stops Python from creating __pycache__
+sys.dont_write_bytecode = True
 
 # Establishing database's path
 current_dir = Path(__file__)
