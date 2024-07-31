@@ -80,7 +80,7 @@ def read_classification(championship_id: int) -> Classification | None:
 		print('\nWybierz klasyfikację z poniższej listy:')
 
 		for x in range(0, len(classifications)):
-			print(f'{x+1}. {classifications[x].name}')
+			print(f'{x+1}. {classifications[x].season} {classifications[x].name}')
 
 		try:
 			num = int(input(f'Wybór (1-{len(classifications)}): '))

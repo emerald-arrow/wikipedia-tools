@@ -18,7 +18,7 @@ def get_classifications_by_champ_id(championship_id: int) -> list[Classification
 
 	with db:
 		query = '''
-			SELECT cl.id, t.name, ct.name
+			SELECT cl.id, t.name, ct.name, cl.season
 			FROM classification cl
 			JOIN title t
 			ON t.id = cl.title_id
@@ -38,7 +38,8 @@ def get_classifications_by_champ_id(championship_id: int) -> list[Classification
 						db_id=int(r[0]),
 						name=r[1],
 						championship_id=championship_id,
-						cl_type=r[2]
+						cl_type=r[2],
+						season=r[3]
 					)
 				)
 
