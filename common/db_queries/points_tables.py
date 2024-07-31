@@ -189,3 +189,23 @@ def get_nonscoring_abbreviations(wiki_id: int) -> list[LocalisedAbbreviation] | 
 			return abbreviations
 		else:
 			return list()
+
+
+# Gets number of races held in given classification
+def get_races_held(classification_id: int) -> int | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return
+
+	with db:
+		query = '''
+			SELECT MAX(round_number)
+			FROM score
+			WHERE classification_id = :cl_id;
+		'''
+
+		result = db.execute(query, {'cl_id': classification_id}).fetchone()
+
+		return -1 if result[0] is None else int(result[0])
