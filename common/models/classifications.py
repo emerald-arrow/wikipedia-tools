@@ -1,9 +1,13 @@
 class Classification:
-    def __init__(self, db_id: int, name: str, championship_id: int, cl_type: str) -> None:
+    def __init__(
+            self, db_id: int, name: str, championship_id: int,
+            cl_type: str, season: str | None = None
+    ) -> None:
         self.db_id = db_id
         self.name = name
         self.championship_id = championship_id
         self.cl_type = cl_type
+        self.season = season
 
 
 class EligibleClassifications:
