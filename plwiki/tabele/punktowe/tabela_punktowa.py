@@ -95,39 +95,48 @@ def read_classification(championship_id: int) -> Classification | None:
 			return classifications[num - 1]
 
 
-# Odczytanie liczby rund w sezonie oraz rozegranych rund
-def read_round_numbers() -> tuple[int, int]:
-	season_rounds: int | None = None
-	rounds_held: int | None = None
+# Odczytanie liczby rund w sezonie oraz rozegranych rund z bazy danych lub od użytkownika
+def get_round_numbers(classification_id: int) -> tuple[int, int] | None:
+	from common.db_queries.classification_tables import get_races_number
+	from common.db_queries.points_tables import get_races_held
 
-	while True:
-		try:
-			season_rounds = int(input('\nLiczba wyścigów w sezonie: '))
-		except (TypeError, ValueError):
-			print('\nPodaj liczbę naturalną.')
-			continue
-		else:
-			if season_rounds <= 0:
+	season_rounds: int | None = get_races_number(classification_id)
+	rounds_held: int | None = get_races_held(classification_id)
+
+	if rounds_held == -1:
+		print('\nBaza danych nie zawiera wyników tej klasyfikacji')
+		return None
+
+	if season_rounds is None or season_rounds == -1:
+		while True:
+			try:
+				season_rounds = int(input('\nLiczba wyścigów w sezonie: '))
+			except (TypeError, ValueError):
 				print('\nPodaj liczbę naturalną.')
 				continue
 			else:
+				if season_rounds <= 0:
+					print('\nPodaj liczbę naturalną.')
+					continue
+				else:
+					break
+
+	if rounds_held is None:
+		while True:
+			try:
+				rounds_held: int = int(input('\nLiczba rozegranych wyścigów: '))
+			except (TypeError, ValueError):
+				print('\nPodaj liczbę naturalną.')
+				continue
+
+			if rounds_held <= 0:
+				print('\nPodaj liczbę naturalną.')
+				continue
+			elif rounds_held > season_rounds:
+				print('\nLiczba rozegranych wyścigów nie może być większa od liczby wyścigów w sezonie.')
+				continue
+			else:
 				break
-
-	while True:
-		try:
-			rounds_held: int = int(input('\nLiczba rozegranych wyścigów: '))
-		except (TypeError, ValueError):
-			print('\nPodaj liczbę naturalną.')
-			continue
-
-		if rounds_held <= 0:
-			print('\nPodaj liczbę naturalną.')
-			continue
-		elif rounds_held > season_rounds:
-			print('\nLiczba rozegranych wyścigów nie może być większa od liczby wyścigów w sezonie.')
-			continue
-		else:
-			break
 
 	return rounds_held, season_rounds
 
@@ -274,10 +283,12 @@ def main() -> None:
 	results: list[EntityResults] = get_classification_results(classification, plwiki_id)
 
 	# Odczytanie liczby rozegranych rund i rund w całym sezonie
-	# TODO:
-	# Do zastąpienia odczytywaniem liczby rozegranych rund i ogółem w sezonie z bazy danych
-	race_numbers: tuple[int, int] = read_round_numbers()
+	race_numbers: tuple[int, int] | None = get_round_numbers(classification.db_id)
 
+	if race_numbers is None:
+		return
+
+	# Wyświetlenie zastrzeżenia dotyczącego oznaczania pole position producenta, jeśli punktuje więcej niż jedno auto
 	if rowspan > 1 and classification.cl_type == 'MANUFACTURERS':
 		import time
 

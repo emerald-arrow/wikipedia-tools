@@ -189,6 +189,26 @@ def get_manufacturer_scoring_cars(classification_id: int) -> str | None:
 		return '' if result is None else result[0]
 
 
+# Gets number of all races in classification's season and number of races that took place
+def get_races_number(classification_id: int) -> int | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	with db:
+		query = '''
+			SELECT races_number
+			FROM classification
+			WHERE id = :cl_id;
+		'''
+
+		result = db.execute(query, {'cl_id': classification_id}).fetchone()
+
+		return -1 if result is None else int(result[0])
+
+
 # Checks whether entity under given id can score in given classification
 def check_points_eligibility(classification_id: int, entity_id: int) -> bool | None:
 	db: Connection | None = db_connection()
