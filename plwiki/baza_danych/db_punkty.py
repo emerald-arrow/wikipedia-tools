@@ -509,16 +509,16 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 					from common.db_queries.classification_tables import remove_session_scores
 					print('\nUsuwanie wyników...')
 
-					results: list[bool] = remove_session_scores(
+					results_removed: bool = remove_session_scores(
 						classifications=classifications,
 						round_number=num,
 						session_id=session_id
 					)
 
-					if results is None:
+					if results_removed is None:
 						return None
 
-					if all(results) is True:
+					if results_removed:
 						print('\nWyniki tej sesji zostały usunięte z bazy danych.')
 						return num
 					else:
