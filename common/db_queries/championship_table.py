@@ -1,6 +1,10 @@
+import sys
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.championships import Championship, ChampionshipExt
+
+# Prevents creating __pycache__ directory
+sys.dont_write_bytecode = True
 
 
 # Gets championships data with organiser names
