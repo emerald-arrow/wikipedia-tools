@@ -157,7 +157,7 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 			# Wypisanie auta
 			car = get_car_link(row['VEHICLE'], wiki_id)
 
-			if car is None:
+			if car is None or car == '':
 				car = f'[[{row["VEHICLE"]}]]'
 
 			print(f'| {car}')
@@ -578,7 +578,7 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 				# Wypisanie auta
 				car = get_car_link(row['VEHICLE'], wiki_id)
 
-				if car is None:
+				if car is None or car == '':
 					car = f'[[{row["VEHICLE"]}]]'
 
 				print(f'| {car}')
