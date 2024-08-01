@@ -1,9 +1,13 @@
+import sys
 import sqlite3
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.classifications import Classification
 from common.models.results import EntityResults, RoundResult
 from common.models.styles import Style
+
+# Prevents creating __pycache__ directory
+sys.dont_write_bytecode = True
 
 
 # Gets all classifications of a championship
@@ -189,7 +193,7 @@ def get_manufacturer_scoring_cars(classification_id: int) -> str | None:
 		return '' if result is None else result[0]
 
 
-# Gets number of all races in classification's season and number of races that took place
+# Gets number of all races in classification's season
 def get_races_number(classification_id: int) -> int | None:
 	db: Connection | None = db_connection()
 
@@ -304,7 +308,7 @@ def add_score(
 # Removes results of round's session
 def remove_session_scores(
 	classifications: list[Classification], round_number: int, session_id: int
-) -> list[bool] | None:
+) -> bool | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
@@ -333,8 +337,8 @@ def remove_session_scores(
 			except sqlite3.Error as e:
 				print(e.__str__())
 				results.append(False)
-				return results
+				return all(results)
 
 			results.append(True)
 
-		return results
+		return all(results)
