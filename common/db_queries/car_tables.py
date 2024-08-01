@@ -1,14 +1,19 @@
+import sys
 import sqlite3
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.car import Car
 
+# Prevents creating __pycache__ directory
+sys.dont_write_bytecode = True
 
-# Checks whether car's is in 'car' and 'car_wikipedia' tables
+
+# Checks whether car's data exists in database
 def check_car_exists(codename: str, wikipedia_id: int) -> bool | None:
-	db: Connection | None = db_connection()  # podmiana
+	db: Connection | None = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
@@ -26,14 +31,15 @@ def check_car_exists(codename: str, wikipedia_id: int) -> bool | None:
 
 		result = db.execute(query, params).fetchone()
 
-		return None if result is None else bool(result[0])
+		return False if result[0] is None else bool(result[0])
 
 
 # Gets car's link from the database and refreshes car's timestamp
 def get_car_link(codename: str, wiki_id: int) -> str | None:
-	db = db_connection()
+	db: Connection | None = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
@@ -50,10 +56,10 @@ def get_car_link(codename: str, wiki_id: int) -> str | None:
 		try:
 			result = db.execute(query, params).fetchone()
 		except sqlite3.Error:
-			return None
+			return ''
 
 		if result is None:
-			return None
+			return ''
 		else:
 			query = '''
 				UPDATE car
@@ -66,29 +72,79 @@ def get_car_link(codename: str, wiki_id: int) -> str | None:
 			return result[0]
 
 
-# Adds car's data to the database
-def add_car(car: Car, wiki_id: int) -> None:
+# Adds cars data to the database
+def add_cars(cars: list[Car], wiki_id: int) -> None:
 	db: Connection | None = db_connection()
 
 	if db is None:
 		print("Couldn't connect to the database.")
-		return
+		return None
 
-	with db:
-		exists: bool = False
+	for car in cars:
+		with db:
+			exists: bool = False
 
-		db.execute('BEGIN')
+			db.execute('BEGIN')
 
-		# Checking whether car's data is in 'car' table
-		query = 'SELECT id FROM car WHERE codename = :codename;'
-		params = {'codename': car.codename}
-
-		car_id_db: tuple | None = db.execute(query, params).fetchone()
-
-		if car_id_db is None:
-			# Adding car's data to 'car' table
-			query = 'INSERT INTO car (codename) VALUES (:codename);'
+			# Checking whether car's data is in 'car' table
+			query = 'SELECT id FROM car WHERE codename = :codename;'
 			params = {'codename': car.codename}
+
+			car_id_db: tuple | None = db.execute(query, params).fetchone()
+
+			if car_id_db is None:
+				# Adding car's data to 'car' table
+				query = 'INSERT INTO car (codename) VALUES (:codename);'
+				params = {'codename': car.codename}
+
+				try:
+					db.execute(query, params)
+				except sqlite3.OperationalError as e:
+					db.execute('ROLLBACK')
+					print('An error occurred while adding %s: %s' % (
+						car.codename,
+						e
+					))
+					continue
+
+				# Checking car's id in the database
+				query = 'SELECT id FROM car WHERE codename = :codename'
+				params = {'codename': car.codename}
+
+				result = db.execute(query, params).fetchone()
+				car_id = result[0]
+			else:
+				exists = True
+				car_id: int = car_id_db[0]
+				# Checking whether 'car_wikipedia' table has links to the article about the car
+				query = '''
+					SELECT link
+					FROM car_wikipedia
+					WHERE car_id = :car_id
+					AND wikipedia_id = :wikipedia_id;
+				'''
+				params = {'car_id': car_id, 'wikipedia_id': wiki_id}
+
+				result = db.execute(query, params).fetchone()
+
+				if result is not None:
+					db.execute('ROLLBACK')
+					print('%s already has a link in the database: "%s"' % (
+						car.codename,
+						result[0]
+					))
+					continue
+
+			# Adding link into 'car_wikipedia' table
+			query = '''
+				INSERT INTO car_wikipedia (wikipedia_id, car_id, link)
+				VALUES (:wikipedia_id, :car_id, :link);
+			'''
+			params = {
+				'wikipedia_id': wiki_id,
+				'car_id': car_id,
+				'link': car.link
+			}
 
 			try:
 				db.execute(query, params)
@@ -98,60 +154,11 @@ def add_car(car: Car, wiki_id: int) -> None:
 					car.codename,
 					e
 				))
-				return
+				continue
 
-			# Checking car's id in the database
-			query = 'SELECT id FROM car WHERE codename = :codename'
-			params = {'codename': car.codename}
+			db.execute('COMMIT')
 
-			result = db.execute(query, params).fetchone()
-			car_id = result[0]
-		else:
-			exists = True
-			car_id: int = car_id_db[0]
-			# Checking whether 'car_wikipedia' table has links to the article about the car
-			query = '''
-				SELECT link
-				FROM car_wikipedia
-				WHERE car_id = :car_id
-				AND wikipedia_id = :wikipedia_id;
-			'''
-			params = {'car_id': car_id, 'wikipedia_id': wiki_id}
-
-			result = db.execute(query, params).fetchone()
-
-			if result is not None:
-				db.execute('ROLLBACK')
-				print('%s already has a link to the Wikipedia article: "%s"' % (
-					car.codename,
-					result[0]
-				))
-				return
-
-		# Adding link into 'car_wikipedia' table
-		query = '''
-			INSERT INTO car_wikipedia (wikipedia_id, car_id, link)
-			VALUES (:wikipedia_id, :car_id, :link);
-		'''
-		params = {
-			'wikipedia_id': wiki_id,
-			'car_id': car_id,
-			'link': car.link
-		}
-
-		try:
-			db.execute(query, params)
-		except sqlite3.OperationalError as e:
-			db.execute('ROLLBACK')
-			print('An error occurred while adding %s to the database - %s' % (
-				car.link,
-				e
-			))
-			return
-
-		db.execute('COMMIT')
-
-		if exists:
-			print(f'{car.codename} - successfully added link: "{car.link}"')
-		else:
-			print(f'{car.codename} - successfully added to the database')
+			if exists:
+				print(f'{car.codename} - successfully added link: "{car.link}"')
+			else:
+				print(f'{car.codename} - successfully added to the database')

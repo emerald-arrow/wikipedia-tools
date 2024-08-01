@@ -83,7 +83,7 @@ def read_results_csv(path: str, wiki_id: int) -> list[Car]:
     return cars
 
 
-# Sprawdzenie czy podany plik z wynikami ma wymagane kolumny
+# Sprawdzenie podanego pliku z wynikami pod kątem wymaganych kolumn
 def verify_results_csv(path: str) -> bool:
     with open(path, mode='r', encoding='utf-8-sig') as csv_file:
         csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -109,7 +109,7 @@ def read_path_to_results_csv() -> str:
 
 
 # Tworzenie pliku .csv z danymi aut
-def car_data_to_csv_mode() -> None:
+def dump_cars_data_to_csv() -> None:
     plwiki_id: int | None = get_wiki_id('plwiki')
 
     if plwiki_id is None:
@@ -126,7 +126,7 @@ def car_data_to_csv_mode() -> None:
     write_cars_csv(cars)
 
 
-# Sprawdzenie czy podany plik z danymi aut ma wymagane kolumny
+# Sprawdzenie podanego pliku z danymi aut pod kątem wymaganych kolumn
 def verify_cars_csv(path: str) -> bool:
     with open(path, mode='r', encoding='utf-8-sig') as csv_file:
         csv_reader = csv.DictReader(csv_file, delimiter=',')
@@ -139,7 +139,7 @@ def verify_cars_csv(path: str) -> bool:
         )
 
 
-# Sprawdzenie czy katalog zawiera pliki z danymi aut
+# Sprawdzenie, czy bieżący katalog zawiera pliki z danymi aut
 def get_cars_csv_files_in_dir() -> list[str]:
     csv_files: list[str] = []
     files = [f for f in os.listdir() if os.path.isfile(f)]
@@ -248,8 +248,8 @@ def read_cars_csv(path: str) -> list[Car]:
 
 
 # Zapisanie danych o autach w bazie
-def cars_data_to_db_mode() -> None:
-    from common.db_queries.car_tables import add_car
+def save_cars_data_to_db() -> None:
+    from common.db_queries.car_tables import add_cars
 
     plwiki_id: int | None = get_wiki_id('plwiki')
 
@@ -268,8 +268,7 @@ def cars_data_to_db_mode() -> None:
     if len(cars) == 0:
         return
 
-    for car in cars:
-        add_car(car, plwiki_id)
+    add_cars(cars, plwiki_id)
 
 
 # Wybór trybu pracy skryptu
@@ -287,22 +286,23 @@ def choose_mode() -> None:
             print(f'{o}. {options[o]}')
 
         try:
-            num = int(input('Wybór: '))
+            num = int(input(f'Wybór (1-{len(options)}): '))
         except ValueError:
             print('\nPodaj liczbę między 1 a 3.')
             continue
 
-        if num not in options:
-            print('\nWybór spoza powyższej listy, spróbuj ponownie.')
-            continue
-        elif num == 1:
-            car_data_to_csv_mode()
-            break
-        elif num == 2:
-            cars_data_to_db_mode()
-            break
-        elif num == 3:
-            return
+        if num in options:
+            match num:
+                case 1:
+                    dump_cars_data_to_csv()
+                    break
+                case 2:
+                    save_cars_data_to_db()
+                    break
+                case 3:
+                    return
+        else:
+            print('\nWybór spoza listy opcji, spróbuj ponownie.')
 
 
 if __name__ == "__main__":
