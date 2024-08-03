@@ -16,7 +16,7 @@ if True:  # noqa: E402
 	from common.models.championships import ChampionshipExt
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
-	from common.models.driver import DbDriver
+	from common.models.driver import Driver
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
@@ -201,7 +201,7 @@ def read_results_csv(
 
 		for row in csv_reader:  # type: dict
 			line_count += 1
-			row_drivers: list[DbDriver] = list()
+			row_drivers: list[Driver] = list()
 
 			try:
 				row_car_no = row['NUMBER']
@@ -252,7 +252,7 @@ def read_results_csv(
 					driver = row[driver_columns.format(x)]
 
 				if len(driver) > 1:
-					driver_data = get_driver_by_codename(driver.lower(), wiki_id)
+					driver_data: Driver | None = get_driver_by_codename(driver.lower(), wiki_id)
 					if driver_data is None:
 						not_found['drivers'].append(driver)
 					else:

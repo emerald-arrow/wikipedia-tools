@@ -10,6 +10,7 @@ if project_path not in sys.path:
 if True:  # noqa: E402
 	from common.models.sessions import Session
 	from common.models.championships import ChampionshipExt
+	from common.models.driver import Driver
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.team_tables import get_team_data
 	from common.db_queries.driver_tables import get_driver_flag_links
@@ -97,61 +98,63 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 					))
 
 			# Wypisanie listy kierowców z flagami
-			drivers: list[dict[str, any]] = list()
+			drivers: list[Driver] = list()
 
 			# Składy są najwyżej czteroosobowe
 			for x in range(1, 5):
-				driver_data = None
+				driver_data: Driver | None = None
 
-				if (
-						row.get(f'DRIVER_{x}') is not None
-						and row.get(f'DRIVER_{x}') != ''
-				):
+				# Najpierw sprawdzenie nazwy kolumny z danymi kierowców
+				if row.get(f'DRIVER_{x}') is not None:
+					# Przerwanie pętli w razie znalezienia pustego łańcucha znaków zamiast imienia i nazwiska
+					if row.get(f'DRIVER_{x}') == '':
+						break
+
 					driver_data = get_driver_flag_links(row[f'DRIVER_{x}'].lower(), wiki_id)
-					if driver_data is None:
+					if driver_data.empty_fields():
 						driver_name = row[f'DRIVER_{x}'].split(" ", 1)
-						driver_data = {
-							'short_link': f'[[{driver_name[0]} {driver_name[1].capitalize()}]]',
-							'long_link': '',
-							'nationality': '?'
-						}
-				elif (
-						row.get(f'DRIVER{x}_FIRSTNAME') is not None
-						and row.get(f'DRIVER{x}_FIRSTNAME') != ''
-				):
+						driver_data = Driver(
+							nationality='?',
+							short_link=f'[[{driver_name[0]} {driver_name[1].capitalize()}]]',
+						)
+					drivers.append(driver_data)
+				elif row.get(f'DRIVER{x}_FIRSTNAME') is not None:
+					if row.get(f'DRIVER{x}_FIRSTNAME') == '':
+						break
+
 					codename = '%s %s' % (
 						row[f'DRIVER{x}_FIRSTNAME'],
 						row[f'DRIVER{x}_SECONDNAME'].capitalize()
 					)
 					driver_data = get_driver_flag_links(codename.lower(), wiki_id)
-					if driver_data is None:
-						driver_data = {
-							'short_link': f'[[{codename}]]',
-							'long_link': '',
-							'nationality': '?'
-						}
-
-				if driver_data is not None:
+					if driver_data.empty_fields():
+						driver_data = Driver(
+							nationality='?',
+							short_link=f'[[{codename}]]'
+						)
 					drivers.append(driver_data)
+				else:
+					print('| Imiona i nazwiska kierowców znajdują się w innych kolumnach niż przewiduje skrypt.')
+					break
 
 			for x in range(0, len(drivers)):
 				if x == 0:
 					print('| {{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['long_link'] if drivers[x]['long_link'] != ''
-						else drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].long_link if drivers[x].long_link != ''
+						else drivers[x].short_link
 					), end='')
 				elif x == len(drivers) - 1:
 					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['long_link'] if drivers[x]['long_link'] != ''
-						else drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].long_link if drivers[x].long_link != ''
+						else drivers[x].short_link
 					))
 				else:
 					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['long_link'] if drivers[x]['long_link'] != ''
-						else drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].long_link if drivers[x].long_link != ''
+						else drivers[x].short_link
 					), end='')
 
 			# Wypisanie auta

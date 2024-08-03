@@ -90,12 +90,12 @@ def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 
 					drivers.append(driver)
 
-		print(f'\nPrzetworzone linie: {line_count}.\nZnalezieni kierowcy: {len(drivers)}')
+		print(f'\nPrzetworzone linie: {line_count}\nZnalezieni kierowcy: {len(drivers)}')
 
 	return drivers
 
 
-# Sprawdzenie czy podany plik z wynikami ma wymagane nazwy kolumn
+# Sprawdzenie kolumn w podanym pliku z wynikami
 def verify_results_csv(file) -> bool:
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -149,7 +149,7 @@ def driver_data_to_csv_mode() -> None:
 	write_drivers_csv(drivers)
 
 
-# Sprawdzenie czy podany plik z danymi kierowców ma wymagane kolumny
+# Sprawdzenie kolumn w podanym pliku z danymi kierowców
 def verify_drivers_csv(path: str) -> bool:
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
@@ -164,7 +164,7 @@ def verify_drivers_csv(path: str) -> bool:
 		)
 
 
-# Sprawdzenie katalogu czy zawiera pliki z danymi kierowców
+# Sprawdzenie, czy bieżący katalog zawiera pliki z danymi kierowców
 def get_drivers_csv_files_in_dir() -> list[str]:
 	csv_files: list[str] = []
 	files = [f for f in os.listdir() if os.path.isfile(f)]
@@ -275,26 +275,26 @@ def read_drivers_csv(path: str) -> list[Driver]:
 					)
 				)
 
-		print(f'\nPrzetworzone linie: {line_count}.\nZnalezieni kierowcy: {len(drivers)}.')
+		print(f'\nPrzetworzone linie: {line_count}\nZnalezieni kierowcy: {len(drivers)}')
 
 	return drivers
 
 
 # Zapisanie danych o kierowcach w bazie
 def driver_data_to_db_mode() -> None:
-	from common.db_queries.driver_tables import add_driver
+	from common.db_queries.driver_tables import add_drivers
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.entity_table import get_entity_type_id
 
-	wiki_id: int | None = get_wiki_id('plwiki')
+	plwiki_id: int | None = get_wiki_id('plwiki')
 
-	if wiki_id is None:
+	if plwiki_id is None:
 		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
 		return
 
-	type_id: int | None = get_entity_type_id('driver')
+	driver_type_id: int | None = get_entity_type_id('driver')
 
-	if type_id is None:
+	if driver_type_id is None:
 		print('\nW bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
 		return
 
@@ -306,8 +306,8 @@ def driver_data_to_db_mode() -> None:
 		return
 
 	print()
-	for driver in drivers:
-		add_driver(driver, wiki_id, type_id)
+
+	add_drivers(drivers, plwiki_id, driver_type_id)
 
 
 # Wybór trybu pracy skryptu

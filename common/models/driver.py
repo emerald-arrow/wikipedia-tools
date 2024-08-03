@@ -1,9 +1,13 @@
 class Driver:
-    def __init__(self, codename: str, nationality: str, short_link: str, long_link: str = '') -> None:
+    def __init__(
+            self, codename: str = '', nationality: str = '',
+            short_link: str = '', long_link: str = '', db_id: int = -1
+    ) -> None:
         self.codename = codename
         self.nationality = nationality
         self.short_link = short_link
         self.long_link = long_link
+        self.db_id = db_id
 
     def __repr__(self) -> str:
         return f'{self.codename},{self.nationality},{self.short_link},{self.long_link}'
@@ -23,11 +27,17 @@ class Driver:
         return hash(self.__repr__())
 
     def __iter__(self) -> iter:
-        return iter([self.codename, self.nationality, self.short_link, self.long_link])
+        return iter([
+            self.codename,
+            self.nationality,
+            self.short_link,
+            self.long_link
+        ])
 
-
-class DbDriver:
-    def __init__(self, db_id: int, flag: str, link: str):
-        self.db_id = db_id
-        self.flag = flag
-        self.link = link
+    # Returns True if codename, short_link and nationality are empty strings
+    def empty_fields(self) -> bool:
+        return all([
+            len(self.codename) == 0,
+            len(self.short_link) == 0,
+            len(self.nationality) == 0
+        ])
