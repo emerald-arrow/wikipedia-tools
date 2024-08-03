@@ -1,12 +1,12 @@
 from common.models.classifications import EligibleClassifications
 from common.models.manufacturer import Manufacturer
-from common.models.driver import DbDriver
+from common.models.driver import Driver
 from common.models.styles import Style
 
 
 class ResultRow:
     def __init__(
-        self, drivers: list[DbDriver], status: str, db_team_id: int,
+        self, drivers: list[Driver], status: str, db_team_id: int,
         eligible_classifications: EligibleClassifications,
         manufacturer: Manufacturer | None = None,
     ) -> None:
