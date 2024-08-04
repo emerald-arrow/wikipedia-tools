@@ -17,6 +17,7 @@ if True:  # noqa: E402
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import Driver
+	from common.models.teams import TeamEligibility
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
@@ -220,16 +221,16 @@ def read_results_csv(
 
 			codename = f'#{row_car_no} {row_team}'
 
-			(row_db_team_id, can_score) = get_id_and_scoring(
+			team_eligibility: TeamEligibility = get_id_and_scoring(
 				codename,
 				championship_id
 			)
 
-			if not can_score:
+			if team_eligibility.team.db_id is None:
+				not_found['teams'].append(codename)
 				continue
 
-			if type(row_db_team_id) is not int:
-				not_found['teams'].append(codename)
+			if team_eligibility.eligibility is None or not team_eligibility.eligibility:
 				continue
 
 			if 'DRIVER_1' in row:
@@ -242,7 +243,7 @@ def read_results_csv(
 					'W podanym pliku brakuje kolumny z danymi kierowców.'
 				]
 				print(*msg, sep=' ')
-				return []
+				return list()
 
 			for x in range(1, 5):
 				if type(driver_columns) is list:
@@ -268,7 +269,7 @@ def read_results_csv(
 
 			eligible_cls = find_classifications(
 				category=row_category,
-				team_id=row_db_team_id,
+				team_id=team_eligibility.team.db_id,
 				driver_ids=[x.db_id for x in row_drivers],
 				manufacturer_id=row_manufacturer.db_id if row_manufacturer is not None else None,
 				classifications=classifications
@@ -277,7 +278,7 @@ def read_results_csv(
 			row_data = ResultRow(
 				drivers=row_drivers,
 				status=row_status,
-				db_team_id=row_db_team_id,
+				db_team_id=team_eligibility.team.db_id,
 				manufacturer=row_manufacturer if eligible_cls.manufacturer_cl is not None else None,
 				eligible_classifications=eligible_cls
 			)

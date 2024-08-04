@@ -8,7 +8,7 @@ project_path = str(Path(__file__).parent.parent.parent)
 if project_path not in sys.path:
 	sys.path.append(project_path)
 
-from common.models.team import Team  # noqa: E402
+from common.models.teams import Team  # noqa: E402
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
@@ -310,13 +310,13 @@ def read_championship() -> int:
 
 # Zapisanie danych o zespołach w bazie
 def team_data_to_db_mode() -> None:
-	from common.db_queries.team_tables import add_team
+	from common.db_queries.team_tables import add_teams
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.entity_table import get_entity_type_id
 
-	wiki_id: int | None = get_wiki_id('plwiki')
+	plwiki_id: int | None = get_wiki_id('plwiki')
 
-	if wiki_id is None:
+	if plwiki_id is None:
 		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
 		return
 
@@ -335,9 +335,11 @@ def team_data_to_db_mode() -> None:
 
 	championship_id: int = read_championship()
 
-	for team in teams:
-		if add_team(team, championship_id, wiki_id, team_type_id):
-			print(f'{team.codename} - dodano pomyślnie do bazy')
+	add_teams(teams, championship_id, plwiki_id, team_type_id)
+
+	# for team in teams:
+	# 	if add_team(team, championship_id, plwiki_id, team_type_id):
+	# 		print(f'{team.codename} - dodano pomyślnie do bazy')
 
 
 # Wybór trybu pracy skryptu
