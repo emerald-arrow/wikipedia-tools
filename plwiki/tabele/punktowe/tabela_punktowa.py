@@ -103,11 +103,10 @@ def get_round_numbers(classification_id: int) -> tuple[int, int] | None:
 	season_rounds: int | None = get_races_number(classification_id)
 	rounds_held: int | None = get_races_held(classification_id)
 
-	if rounds_held == -1:
-		print('\nBaza danych nie zawiera wyników tej klasyfikacji')
+	if season_rounds is None or rounds_held is None:
 		return None
 
-	if season_rounds is None or season_rounds == -1:
+	if season_rounds == -1:
 		while True:
 			try:
 				season_rounds = int(input('\nLiczba wyścigów w sezonie: '))
@@ -121,7 +120,7 @@ def get_round_numbers(classification_id: int) -> tuple[int, int] | None:
 				else:
 					break
 
-	if rounds_held is None:
+	if rounds_held == -1:
 		while True:
 			try:
 				rounds_held: int = int(input('\nLiczba rozegranych wyścigów: '))

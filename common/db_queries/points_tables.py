@@ -1,10 +1,15 @@
+import sys
 from sqlite3 import Connection
 from common.db_connect import db_connection
 from common.models.sessions import DbSession
 from common.models.styles import Style, StyledStatus, StyledPosition, LocalisedAbbreviation
 
 
-# Pobieranie skali punktowych danej serii
+# Prevents creating __pycache__ directory
+sys.dont_write_bytecode = True
+
+
+# Gets points scales of championship under given id
 def get_points_scales(championship_id: int) -> list[float] | None:
 	db: Connection | None = db_connection()
 
@@ -24,7 +29,7 @@ def get_points_scales(championship_id: int) -> list[float] | None:
 
 		points_scales = list()
 
-		if result is not None:
+		if len(result) > 0:
 			for r in result:
 				points_scales.append(float(r[0]))
 
@@ -54,7 +59,7 @@ def get_scoring_sessions(championship_id: int, scale: float) -> list[DbSession] 
 
 		sessions: list[DbSession] = list()
 
-		if result is not None:
+		if len(result) > 0:
 			for res in result:
 				sessions.append(
 					DbSession(
@@ -63,7 +68,7 @@ def get_scoring_sessions(championship_id: int, scale: float) -> list[DbSession] 
 					)
 				)
 
-		return list() if result is None else sessions
+		return sessions
 
 
 # Gets Wikipedia table-styled nonscoring statuses (retired, not classified, etc.)
@@ -89,7 +94,7 @@ def get_styled_nonscoring_statuses() -> list[StyledStatus] | None:
 
 		result = db.execute(query).fetchall()
 
-		if result is not None:
+		if len(result) > 0:
 			for res in result:
 				styled_statuses.append(
 					StyledStatus(
@@ -103,7 +108,7 @@ def get_styled_nonscoring_statuses() -> list[StyledStatus] | None:
 					)
 				)
 
-		return list() if result is None else styled_statuses
+		return styled_statuses
 
 
 # Gets styled points system
@@ -134,7 +139,7 @@ def get_styled_points_system(championship_id: int, scale: float, session_id: int
 
 		result = db.execute(query, params).fetchall()
 
-		if result is not None:
+		if len(result) > 0:
 			for res in result:
 				points_system.append(
 					StyledPosition(
@@ -150,7 +155,7 @@ def get_styled_points_system(championship_id: int, scale: float, session_id: int
 					)
 				)
 
-		return list() if result is None else points_system
+		return points_system
 
 
 # Gets localised abbreviations of nonscoring statuses
@@ -175,9 +180,9 @@ def get_nonscoring_abbreviations(wiki_id: int) -> list[LocalisedAbbreviation] | 
 
 		result = db.execute(query, params).fetchall()
 
-		if result is not None:
-			abbreviations: list[LocalisedAbbreviation] = list()
+		abbreviations: list[LocalisedAbbreviation] = list()
 
+		if len(result) > 0:
 			for res in result:
 				abbreviations.append(
 					LocalisedAbbreviation(
@@ -186,9 +191,7 @@ def get_nonscoring_abbreviations(wiki_id: int) -> list[LocalisedAbbreviation] | 
 					)
 				)
 
-			return abbreviations
-		else:
-			return list()
+		return abbreviations
 
 
 # Gets number of races held in given classification
