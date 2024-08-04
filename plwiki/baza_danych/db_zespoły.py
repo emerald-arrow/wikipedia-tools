@@ -320,9 +320,12 @@ def team_data_to_db_mode() -> None:
 		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
 		return
 
-	type_id: int | None = get_entity_type_id('team')
+	team_type_id: int | None = get_entity_type_id('team')
 
-	if type_id is None:
+	if team_type_id is None:
+		return
+
+	if team_type_id == -1:
 		print('\nW bazie nie znaleziono typu zespołów. Nie można dodać zespołów do bazy.')
 		return
 
@@ -333,7 +336,7 @@ def team_data_to_db_mode() -> None:
 	championship_id: int = read_championship()
 
 	for team in teams:
-		if add_team(team, championship_id, wiki_id, type_id):
+		if add_team(team, championship_id, wiki_id, team_type_id):
 			print(f'{team.codename} - dodano pomyślnie do bazy')
 
 
