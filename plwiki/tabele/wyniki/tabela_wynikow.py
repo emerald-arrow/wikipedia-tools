@@ -679,7 +679,7 @@ def main() -> None:
 
 	plwiki_id = get_wiki_id('plwiki')
 
-	if plwiki_id is None:
+	if plwiki_id is None or plwiki_id == -1:
 		msg: list[str] = [
 			'\nNie znaleziono w bazie polskiej wersji językowej Wikipedii.',
 			'Dane m.in. kierowców będą pobrane jedynie z pliku.'

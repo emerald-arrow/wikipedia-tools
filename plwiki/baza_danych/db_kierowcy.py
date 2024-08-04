@@ -8,7 +8,9 @@ project_path = str(Path(__file__).parent.parent.parent)
 if project_path not in sys.path:
 	sys.path.append(project_path)
 
-from common.models.driver import Driver  # noqa: E402
+if True:  # noqa: E402
+	from common.models.driver import Driver
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
@@ -132,11 +134,12 @@ def read_results_csv_path() -> str:
 
 # Tworzenie pliku .csv z danymi kierowców
 def driver_data_to_csv_mode() -> None:
-	from common.db_queries.wikipedia_table import get_wiki_id
-
-	plwiki_id = get_wiki_id('plwiki')
+	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii')
 
 	path: str = read_results_csv_path()
@@ -283,12 +286,14 @@ def read_drivers_csv(path: str) -> list[Driver]:
 # Zapisanie danych o kierowcach w bazie
 def driver_data_to_db_mode() -> None:
 	from common.db_queries.driver_tables import add_drivers
-	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.entity_table import get_entity_type_id
 
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać kierowców do bazy.')
 		return
 

@@ -8,7 +8,9 @@ project_path = str(Path(__file__).parent.parent.parent)
 if project_path not in sys.path:
 	sys.path.append(project_path)
 
-from common.models.teams import Team  # noqa: E402
+if True:  # noqa: E402
+	from common.models.teams import Team
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
@@ -128,11 +130,12 @@ def read_results_csv_path() -> str:
 
 # Tworzenie pliku .csv z danymi zespołów
 def team_data_to_csv_mode() -> None:
-	from common.db_queries.wikipedia_table import get_wiki_id
-
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii.')
 		return
 
@@ -311,12 +314,14 @@ def read_championship() -> int:
 # Zapisanie danych o zespołach w bazie
 def team_data_to_db_mode() -> None:
 	from common.db_queries.team_tables import add_teams
-	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.entity_table import get_entity_type_id
 
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		print('\nW bazie nie znaleziono polskiej Wikipedii. Nie można dodać zespołów do bazy.')
 		return
 

@@ -253,6 +253,9 @@ def main() -> None:
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		print('Nie znaleziono w bazie danych id polskiej wersji Wikipedii.')
 		return
 
