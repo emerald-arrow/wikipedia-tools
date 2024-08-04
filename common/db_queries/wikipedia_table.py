@@ -1,24 +1,35 @@
+import sys
 from sqlite3 import Connection
 from common.db_connect import db_connection
+from common.models.wikipedia import Wikipedia
+
+# Prevents creating __pycache__ directory
+sys.dont_write_bytecode = True
 
 
 # Gets all Wikipedia versions
-def get_wiki_versions() -> list[dict[str, str]] | None:
+def get_wiki_versions() -> list[Wikipedia] | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
-		version_list: list[dict[str, str]] = []
+		version_list: list[Wikipedia] = list()
 
 		query = 'SELECT id, version FROM wikipedia'
 
 		result = db.execute(query).fetchall()
 
-		if result is not None:
-			for v in result:
-				version_list.append({'id': v[0], 'version': v[1]})
+		if len(result) > 0:
+			for r in result:
+				version_list.append(
+					Wikipedia(
+						db_id=int(r[0]),
+						name=r[1]
+					)
+				)
 
 		return version_list
 
@@ -28,6 +39,7 @@ def get_wiki_id(name: str) -> int | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
+		print("Couldn't connect to the database.")
 		return None
 
 	with db:
@@ -36,4 +48,4 @@ def get_wiki_id(name: str) -> int | None:
 
 		result = db.execute(query, params).fetchone()
 
-		return None if result is None else int(result[0])
+		return -1 if result is None else int(result[0])

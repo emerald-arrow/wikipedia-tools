@@ -113,6 +113,9 @@ def dump_cars_data_to_csv() -> None:
     plwiki_id: int | None = get_wiki_id('plwiki')
 
     if plwiki_id is None:
+        return
+
+    if plwiki_id == -1:
         print('Nie znaleziono w bazie danych polskiej wersji Wikipedii')
         return
 
@@ -254,11 +257,14 @@ def save_cars_data_to_db() -> None:
     plwiki_id: int | None = get_wiki_id('plwiki')
 
     if plwiki_id is None:
+        return
+
+    if plwiki_id == -1:
         error_msg = [
             '\nNie znaleziono id polskiej Wikipedii w bazie danych.',
             'Nie można rozpocząć dodawania danych do bazy danych.'
         ]
-        print(' '.join(error_msg))
+        print(*error_msg, sep=' ')
         return
 
     chosen_file: str = choose_car_csv_file()

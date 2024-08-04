@@ -602,10 +602,14 @@ def main() -> None:
 	cannot_continue_error: str = '\nSkrypt nie może kontynuować działania.'
 
 	# Pobranie id polskiej wersji Wikipedii z bazy danych
-	plwiki_id = get_wiki_id('plwiki')
+	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
 		print('Nie udało się pobrać id polskiej wersji Wikipedii z bazy danych.' + cannot_continue_error)
+		return
+
+	if plwiki_id == -1:
+		print('Nie znaleziono polskiej wersji Wikipedii w bazie danych.' + cannot_continue_error)
 		return
 
 	# Odczytanie id serii wyścigowej
