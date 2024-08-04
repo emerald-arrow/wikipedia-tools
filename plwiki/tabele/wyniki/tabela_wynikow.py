@@ -81,21 +81,17 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 				wiki_id=wiki_id
 			)
 
-			if team_data is None:
-				print(f'| {{{{Flaga|?}}}} #{row["NUMBER"]} [[{row["TEAM"]}]]')
+			if not team_data.empty_fields():
+				print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
+					country=team_data.nationality,
+					number=team_data.car_number,
+					team_link=team_data.long_link if team_data.long_link != '' else team_data.short_link
+				))
 			else:
-				if team_data['long_link'] != '':
-					print('| {{Flaga|%s}} #%s %s' % (
-						team_data['nationality'],
-						team_data['car_number'],
-						team_data['long_link']
-					))
-				else:
-					print('| {{Flaga|%s}} #%s %s' % (
-						team_data['nationality'],
-						team_data['car_number'],
-						team_data['short_link']
-					))
+				print('| {{{{Flaga|?}}}} #{number} [[{team_link}]]'.format(
+					number=row['NUMBER'],
+					team_link=row['TEAM']
+				))
 
 			# Wypisanie listy kierowców z flagami
 			drivers: list[Driver] = list()
@@ -177,7 +173,9 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 			if status == 'Classified':
 				# Wypisanie straty czasowej/liczby okrążeń
 				if line_count > 0:
-					gap = row['GAP_FIRST'].replace('.', ',').replace('\'', ':')
+					gap: str = row['GAP_FIRST'].replace('.', ',').replace('\'', ':')
+
+					gap = gap.replace('Laps', 'okr.')
 
 					gap = gap if gap.startswith('+') else f'+{gap}'
 
@@ -187,7 +185,7 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 					total_time = row['TOTAL_TIME'].replace('.', ',').replace('\'', ':')
 					print(f'| align="center" | {total_time}')
 			else:
-				# Wypisanie pustej komórki jeśli nieklasyfikowany, zdyskwalifikowany itp.
+				# Wypisanie pustej komórki, jeśli nieklasyfikowany, zdyskwalifikowany itp.
 				print('|')
 
 			line_count += 1
@@ -243,19 +241,19 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 				wiki_id=wiki_id
 			)
 
-			if team_data is not None:
-				print('| {{Flaga|%s}} #%s %s' % (
-					team_data['nationality'],
-					team_data['car_number'],
-					team_data['short_link']
+			if not team_data.empty_fields():
+				print('| {{{{Flaga|{country}}}}} #{number} #{team_link}'.format(
+					country=team_data.nationality,
+					number=team_data.car_number,
+					team_link=team_data.short_link
 				))
 			else:
-				print('| {{Flaga|?}} #%d [[%s]]' % (
-					int(row['NUMBER']),
-					row['TEAM']
+				print('| {{{{Flaga|?}}}} #{number} [[{team_link}]]'.format(
+					number=row['NUMBER'],
+					team_link=row['TEAM']
 				))
 
-			drivers: list[dict[str, any]] = list()
+			drivers: list[Driver] = list()
 
 			# Zebranie danych o kierowcach, maksymalnie składy czteroosobowe
 			for x in range(1, 5):
@@ -286,18 +284,18 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 			for x in range(0, len(drivers)):
 				if x == 0:
 					print('| {{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].short_link
 					), end='')
 				elif x == len(drivers) - 1:
 					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].short_link
 					))
 				else:
 					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x]['nationality'],
-						drivers[x]['short_link']
+						drivers[x].nationality,
+						drivers[x].short_link
 					), end='')
 
 			# Wypisanie uzyskanego czasu i straty
@@ -393,16 +391,16 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 				wiki_id=wiki_id
 			)
 
-			if team_data is not None:
-				row_team: str = '{{Flaga|%s}} #%s %s' % (
-					team_data['nationality'],
-					team_data['car_number'],
-					team_data['short_link']
+			if not team_data.empty_fields():
+				row_team: str = '{{{{Flaga|{country}}}}} #{number} {team_link}'.format(
+					country=team_data.nationality,
+					number=team_data.car_number,
+					team_link=team_data.short_link
 				)
 			else:
-				row_team: str = '{{Flaga|?}} #%s [[%s]]' % (
-					row['NUMBER'],
-					row['TEAM']
+				row_team: str = '{{{{Flaga|?}}}} #{number} [[{team_link}]]'.format(
+					number=row['NUMBER'],
+					team_link=row['TEAM']
 				)
 
 			if category in class_polesitters:
@@ -489,16 +487,16 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 				wiki_id=wiki_id
 			)
 
-			if team_data is not None:
-				print('| {{Flaga|%s}} #%s %s' % (
-					team_data['nationality'],
-					team_data['car_number'],
-					team_data['short_link']
+			if not team_data.empty_fields():
+				print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
+					country=team_data.nationality,
+					number=team_data.car_number,
+					team_link=team_data.short_link
 				))
 			else:
-				print('| {{Flaga|?}} #%d [[%s]]' % (
-					int(row['NUMBER']),
-					row['TEAM']
+				print('| {{{{Flaga|?}}}} #{number} [[{team_link}]]'.format(
+					number=row['NUMBER'],
+					team_link=row['TEAM']
 				))
 
 			# Wypisanie uzyskanego czasu
@@ -566,16 +564,16 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 					wiki_id=wiki_id
 				)
 
-				if team_data is not None:
-					print('| {{Flaga|%s}} #%s %s' % (
-						team_data['nationality'],
-						team_data['car_number'],
-						team_data['short_link']
+				if not team_data.empty_fields():
+					print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
+						country=team_data.nationality,
+						number=team_data.car_number,
+						team_link=team_data.short_link
 					))
 				else:
-					print('| {{Flaga|?}} #%s [[%s]]' % (
-						row['NUMBER'],
-						row['TEAM']
+					print('| {{{{Flaga|?}}}} #{number} [[{team_link}]]'.format(
+						number=row['NUMBER'],
+						team_link=row['TEAM']
 					))
 
 				# Wypisanie auta
