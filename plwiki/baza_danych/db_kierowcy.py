@@ -295,6 +295,9 @@ def driver_data_to_db_mode() -> None:
 	driver_type_id: int | None = get_entity_type_id('driver')
 
 	if driver_type_id is None:
+		return
+
+	if driver_type_id == -1:
 		print('\nW bazie nie znaleziono typu kierowców. Nie można dodać kierowców do bazy.')
 		return
 
