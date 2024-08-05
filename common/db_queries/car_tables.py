@@ -1,11 +1,13 @@
 import sys
-import sqlite3
-from sqlite3 import Connection
-from common.db_connect import db_connection
-from common.models.car import Car
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	import sqlite3
+	from sqlite3 import Connection
+	from common.db_connect import db_connection
+	from common.models.car import Car
 
 
 # Checks whether car's data exists in database

@@ -1,11 +1,13 @@
 import sys
-import sqlite3
-from sqlite3 import Connection
-from common.db_connect import db_connection
-from common.models.teams import Team, TeamEligibility
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	import sqlite3
+	from sqlite3 import Connection
+	from common.db_connect import db_connection
+	from common.models.teams import Team, TeamEligibility
 
 
 # Checks whether a team is in database

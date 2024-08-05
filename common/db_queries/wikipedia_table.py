@@ -1,10 +1,12 @@
 import sys
-from sqlite3 import Connection
-from common.db_connect import db_connection
-from common.models.wikipedia import Wikipedia
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	from sqlite3 import Connection
+	from common.db_connect import db_connection
+	from common.models.wikipedia import Wikipedia
 
 
 # Gets all Wikipedia versions

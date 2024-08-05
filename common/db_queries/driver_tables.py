@@ -1,10 +1,12 @@
 import sys
-import sqlite3
-from common.db_connect import db_connection
-from common.models.driver import Driver
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	import sqlite3
+	from common.db_connect import db_connection
+	from common.models.driver import Driver
 
 
 # Checks whether driver's data is in database

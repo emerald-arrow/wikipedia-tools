@@ -1,9 +1,9 @@
 import sys
-from common.db_connect import db_connection
-
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+from common.db_connect import db_connection  # noqa: E402
 
 
 # Gets id of entity type
