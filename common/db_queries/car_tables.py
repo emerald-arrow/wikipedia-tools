@@ -101,9 +101,9 @@ def add_cars(cars: list[Car], wiki_id: int) -> None:
 					db.execute(query, params)
 				except sqlite3.OperationalError as e:
 					db.execute('ROLLBACK')
-					print('An error occurred while adding %s: %s' % (
-						car.codename,
-						e
+					print('An error occurred while adding {car}: {error}'.format(
+						car=car.codename,
+						error=e
 					))
 					continue
 
@@ -129,9 +129,9 @@ def add_cars(cars: list[Car], wiki_id: int) -> None:
 
 				if result is not None:
 					db.execute('ROLLBACK')
-					print('%s already has a link in the database: "%s"' % (
-						car.codename,
-						result[0]
+					print('{car} already has a link in database: {link}'.format(
+						car=car.codename,
+						link=result[0]
 					))
 					continue
 
@@ -150,9 +150,9 @@ def add_cars(cars: list[Car], wiki_id: int) -> None:
 				db.execute(query, params)
 			except sqlite3.OperationalError as e:
 				db.execute('ROLLBACK')
-				print('An error occurred while adding %s to the database - %s' % (
-					car.codename,
-					e
+				print('An error occurred while adding {car}: {error}'.format(
+					car=car.codename,
+					error=e
 				))
 				continue
 
