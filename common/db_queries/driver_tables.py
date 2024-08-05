@@ -144,9 +144,9 @@ def add_drivers(drivers: list[Driver], wiki_id: int, type_id: int) -> None:
 					db.execute(query, params)
 				except sqlite3.OperationalError as e:
 					db.execute('ROLLBACK')
-					print('An error occurred while adding %s: %s' % (
-						driver.codename,
-						e
+					print('An error occurred while adding {driver}: {error}'.format(
+						driver=driver.codename,
+						error=e
 					))
 					continue
 
@@ -176,9 +176,9 @@ def add_drivers(drivers: list[Driver], wiki_id: int, type_id: int) -> None:
 					db.execute(query, params)
 				except sqlite3.OperationalError as e:
 					db.execute('ROLLBACK')
-					print('An error occurred while adding %s: %s' % (
-						driver.codename,
-						e
+					print('An error occurred while adding {driver}: {error}'.format(
+						driver=driver.codename,
+						error=e
 					))
 					continue
 			else:
@@ -201,10 +201,10 @@ def add_drivers(drivers: list[Driver], wiki_id: int, type_id: int) -> None:
 
 				if result is not None:
 					db.execute('ROLLBACK')
-					print('%s already has links in database: "%s", "%s"' % (
-						driver.codename,
-						result[0],
-						result[1]
+					print('{driver} already has links in database: "{short_link}", "{long_link}'.format(
+						driver=driver.codename,
+						short_link=result[0],
+						long_link=result[1]
 					))
 					continue
 
@@ -224,9 +224,9 @@ def add_drivers(drivers: list[Driver], wiki_id: int, type_id: int) -> None:
 				db.execute(query, params)
 			except sqlite3.OperationalError as e:
 				db.execute('ROLLBACK')
-				print('An error occurred while adding %s: %s' % (
-					driver.codename,
-					e
+				print('An error occurred while adding {driver}: {error}'.format(
+					driver=driver.codename,
+					error=e
 				))
 				continue
 
