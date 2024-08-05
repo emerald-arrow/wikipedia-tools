@@ -1,12 +1,13 @@
 import sys
-from sqlite3 import Connection
-from common.db_connect import db_connection
-from common.models.sessions import DbSession
-from common.models.styles import Style, StyledStatus, StyledPosition, LocalisedAbbreviation
-
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	from sqlite3 import Connection
+	from common.db_connect import db_connection
+	from common.models.sessions import DbSession
+	from common.models.styles import Style, StyledStatus, StyledPosition, LocalisedAbbreviation
 
 
 # Gets points scales of championship under given id

@@ -1,11 +1,12 @@
 import sys
-from sqlite3 import Connection
-from common.models.manufacturer import Manufacturer
-from common.db_connect import db_connection
-
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	from sqlite3 import Connection
+	from common.models.manufacturer import Manufacturer
+	from common.db_connect import db_connection
 
 
 # Gets all manufacturers with their id's, codenames and flags

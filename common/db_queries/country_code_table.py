@@ -1,9 +1,11 @@
 import sys
-from sqlite3 import Connection
-from common.db_connect import db_connection
 
 # Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	from sqlite3 import Connection
+	from common.db_connect import db_connection
 
 
 # Gets country's ISO 3166-1 alpha-3 code.
