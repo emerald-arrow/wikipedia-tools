@@ -1,14 +1,18 @@
 import sys
-import os
-import csv
-import re
-from pathlib import Path
 
-project_path = str(Path(__file__).parent.parent.parent)
-if project_path not in sys.path:
-	sys.path.append(project_path)
+# Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
+sys.dont_write_bytecode = True
 
 if True:  # noqa: E402
+	import os
+	import csv
+	import re
+	from pathlib import Path
+
+	project_path = str(Path(__file__).parent.parent.parent)
+	if project_path not in sys.path:
+		sys.path.append(project_path)
+
 	from common.models.classifications import Classification, EligibleClassifications, ClassificationScoring
 	from common.models.manufacturer import Manufacturer, ManufacturerScoringCars
 	from common.models.results import ResultRow
@@ -17,10 +21,7 @@ if True:  # noqa: E402
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import Driver
-	from common.models.teams import TeamEligibility
-
-# Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
-sys.dont_write_bytecode = True
+	from common.models.teams import Team, TeamEligibility
 
 
 # Odczytanie id serii, której klasyfikacje mają zostać wygenerowane
@@ -43,12 +44,12 @@ def read_championship() -> int | None:
 			print(f'{x + 1}. {championships[x].name}')
 
 		try:
-			num = int(input(f'Wybór (1-{len(championships)}): '))
+			num = int(input(f'Wybór (1-{len(championships)}): ').strip())
 		except (TypeError, ValueError):
 			print(f'Podaj liczbę naturalną z przedziału 1-{len(championships)}')
 			continue
 
-		if num - 1 not in range(0, len(championships)):
+		if num not in range(1, len(championships) + 1):
 			print(f'Podaj liczbę naturalną z zakresu 1-{len(championships)}')
 			continue
 		else:
@@ -97,41 +98,44 @@ def read_points_scale(scales: list[float]) -> float:
 		try:
 			for x in range(1, len(scales) + 1):
 				print(f'{x}. {scales[x - 1]}')
-			choice = int(input('Wybór: '))
+			choice = int(input('Wybór: ').strip())
 		except ValueError:
 			print(f'\nPodaj liczbę z przedziału 1-{len(scales)}')
 			continue
 
-		if choice in range(1, len(scales) + 1):
-			return scales[choice - 1]
-		else:
+		if choice not in range(1, len(scales) + 1):
 			print(f'\nPodaj liczbę z przedziału 1-{len(scales)}')
 			continue
+
+		else:
+			return scales[choice - 1]
 
 
 # Odczytanie sesji
 def read_session(sessions: list[DbSession]) -> DbSession:
 	while True:
 		print('\nWybierz sesję:')
+
+		for x in range(1, len(sessions) + 1):
+			print(f'{x}. {sessions[x - 1].name}')
+
 		try:
-			for x in range(1, len(sessions) + 1):
-				print(f'{x}. {sessions[x - 1].name}')
-			choice = int(input('Wybór: '))
+			choice = int(input('Wybór: ').strip())
 		except ValueError:
 			print(f'\nPodaj liczbę z przedziału 1-{len(sessions)}')
 			continue
 
-		if choice in range(1, len(sessions) + 1):
-			return sessions[choice - 1]
-		else:
+		if choice not in range(1, len(sessions) + 1):
 			print(f'\nPodaj liczbę z przedziału 1-{len(sessions)}')
 			continue
+		else:
+			return sessions[choice - 1]
 
 
 # Odczytanie ścieżki do pliku z klasyfikacją wyścigu
 def read_csv_path() -> str:
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
 
 		if not os.path.isfile(text):
 			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
@@ -219,24 +223,24 @@ def read_results_csv(
 				print(*error_text, sep=' ')
 				return []
 
-			codename = f'#{row_car_no} {row_team}'
+			team_codename: str = f'#{row_car_no} {row_team}'
 
 			team_eligibility: TeamEligibility = get_id_and_scoring(
-				codename,
+				team_codename,
 				championship_id
 			)
 
 			if team_eligibility.team.db_id is None:
-				not_found['teams'].append(codename)
+				not_found['teams'].append(team_codename)
 				continue
 
 			if team_eligibility.eligibility is None or not team_eligibility.eligibility:
 				continue
 
 			if 'DRIVER_1' in row:
-				driver_columns: str = 'DRIVER_{0}'
-			elif 'DRIVER1_FIRSTNAME' in row and 'DRIVER2_SECONDNAME' in row:
-				driver_columns: list[str] = ['DRIVER{0}_FIRSTNAME', 'DRIVER{0}_SECONDNAME']
+				driver_columns: list[str] = ['DRIVER_{number}']
+			elif 'DRIVER1_FIRSTNAME' in row and 'DRIVER1_SECONDNAME' in row:
+				driver_columns: list[str] = ['DRIVER{number}_FIRSTNAME', 'DRIVER{number}_SECONDNAME']
 			else:
 				msg: list[str] = [
 					'\nBłąd podczas czytania danych.',
@@ -246,16 +250,17 @@ def read_results_csv(
 				return list()
 
 			for x in range(1, 5):
-				if type(driver_columns) is list:
-					driver = row[driver_columns[0].format(x)]
-					driver += f' {row[driver_columns[1].format(x)]}'
-				else:
-					driver = row[driver_columns.format(x)]
+				driver_codename: str = ''
 
-				if len(driver) > 1:
-					driver_data: Driver | None = get_driver_by_codename(driver.lower(), wiki_id)
+				for column in driver_columns:
+					driver_codename += f' {row[column.format(number=x)]}'
+
+				driver_codename = driver_codename.lstrip()
+
+				if len(driver_codename) > 1:
+					driver_data: Driver | None = get_driver_by_codename(driver_codename.lower(), wiki_id)
 					if driver_data is None:
-						not_found['drivers'].append(driver)
+						not_found['drivers'].append(driver_codename)
 					else:
 						row_drivers.append(driver_data)
 
@@ -278,7 +283,7 @@ def read_results_csv(
 			row_data = ResultRow(
 				drivers=row_drivers,
 				status=row_status,
-				db_team_id=team_eligibility.team.db_id,
+				team=Team(codename=team_codename, db_id=team_eligibility.team.db_id),
 				manufacturer=row_manufacturer if eligible_cls.manufacturer_cl is not None else None,
 				eligible_classifications=eligible_cls
 			)
@@ -292,8 +297,8 @@ def read_results_csv(
 		if len(not_found['drivers']) > 0:
 			entity_not_found = True
 			print('\nW bazie danych nie znaleziono kierowców:')
-			for driver in not_found['drivers']:
-				print(driver)
+			for driver_codename in not_found['drivers']:
+				print(driver_codename)
 
 		if len(not_found['teams']) > 0:
 			entity_not_found = True
@@ -375,7 +380,7 @@ def calculate_classifications_positions(
 			return list()
 
 		if len(manufacturers) == 0:
-			print('Lista producentów jest pusta.')
+			print('\nLista producentów jest pusta.')
 			return list()
 
 		for oem in manufacturers:  # type: Manufacturer
@@ -487,7 +492,7 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 
 	while True:
 		try:
-			num = int(input('\nPodaj numer rundy w sezonie, której wyniki są w pliku: '))
+			num = int(input('\nPodaj numer rundy w sezonie, której wyniki są w pliku: ').strip())
 		except ValueError:
 			print('Podaj liczbę naturalną.')
 			continue
@@ -501,7 +506,7 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 				print('\nTa runda ma już wyniki tej sesji w bazie. Czy chcesz je zastąpić?')
 				print('1. Tak\n2. Nie')
 				try:
-					ans = int(input('Wybór (1-2): '))
+					ans = int(input('Wybór (1-2): ').strip())
 				except ValueError:
 					print('\nPodaj liczbę 1 lub 2.')
 					continue
@@ -538,6 +543,8 @@ def read_round_number(classifications: list[Classification], session_id: int) ->
 def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSession) -> None:
 	from common.db_queries.classification_tables import add_score
 
+	print('')
+
 	for row in rows:
 		# Zmienna potrzebna do niedodawania wyników kwalifikacji w klasyfikacjach zespołowych
 		# nieprzyznających punktów za kwalifikacje
@@ -547,7 +554,13 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 			row.eligible_classifications.driver_cl is not None
 			and row.eligible_classifications.driver_style_id is not None
 		):
+			print('{season} {classification_name}'.format(
+				season=row.eligible_classifications.driver_cl.season,
+				classification_name=row.eligible_classifications.driver_cl.name
+			))
+
 			for driver in row.drivers:
+				print(f'{driver.codename}:', end=' ')
 				add_score(
 					classification_id=row.eligible_classifications.driver_cl.db_id,
 					round_number=round_number,
@@ -562,7 +575,13 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 			row.eligible_classifications.manufacturer_cl is not None
 			and row.eligible_classifications.manufacturer_style_id is not None
 		):
+			print('{season} {classification_name}'.format(
+				season=row.eligible_classifications.manufacturer_cl.season,
+				classification_name=row.eligible_classifications.manufacturer_cl.name
+			))
+
 			if row.manufacturer is not None:
+				print(f'{row.manufacturer.codename}:', end=' ')
 				add_score(
 					classification_id=row.eligible_classifications.manufacturer_cl.db_id,
 					round_number=round_number,
@@ -577,16 +596,22 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 			and row.eligible_classifications.team_style_id is not None
 			and drivers_result_added is True
 		):
+			print('{season} {classification_name}'.format(
+				season=row.eligible_classifications.team_cl.season,
+				classification_name=row.eligible_classifications.team_cl.name
+			))
+
+			print(f'{row.team.codename}:', end=' ')
 			add_score(
 				classification_id=row.eligible_classifications.team_cl.db_id,
 				round_number=round_number,
 				session_id=session.db_id,
-				entity_id=row.db_team_id,
+				entity_id=row.team.db_id,
 				place=row.eligible_classifications.team_position,
 				points=row.eligible_classifications.team_points,
 				style_id=row.eligible_classifications.team_style_id
 			)
-		print('------')
+		print('-' * 50)
 
 
 # Główna funkcja skryptu

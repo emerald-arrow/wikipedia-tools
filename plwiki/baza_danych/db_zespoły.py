@@ -1,19 +1,20 @@
 import sys
-import os
-import csv
-import re
-from pathlib import Path
-
-project_path = str(Path(__file__).parent.parent.parent)
-if project_path not in sys.path:
-	sys.path.append(project_path)
-
-if True:  # noqa: E402
-	from common.models.teams import Team
-	from common.db_queries.wikipedia_table import get_wiki_id
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	import os
+	import csv
+	import re
+	from pathlib import Path
+
+	project_path = str(Path(__file__).parent.parent.parent)
+	if project_path not in sys.path:
+		sys.path.append(project_path)
+
+	from common.models.teams import Team
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 
 # Zapisanie danych o zespołach do pliku .csv
@@ -97,7 +98,7 @@ def read_results_csv(file: str, wiki_id: int, championship_id: int) -> list[Team
 	return teams
 
 
-# Sprawdzenie czy podany plik z wynikami ma wymagane kolumny
+# Sprawdzenie kolumn w podanym pliku z wynikami
 def verify_results_csv(file: str) -> bool:
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -113,7 +114,7 @@ def verify_results_csv(file: str) -> bool:
 # Odczytanie ścieżki do pliku z wynikami
 def read_results_csv_path() -> str:
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
 
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -129,7 +130,7 @@ def read_results_csv_path() -> str:
 
 
 # Tworzenie pliku .csv z danymi zespołów
-def team_data_to_csv_mode() -> None:
+def dump_teams_data_to_csv() -> None:
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
@@ -151,7 +152,7 @@ def team_data_to_csv_mode() -> None:
 	write_teams_csv(teams)
 
 
-# Sprawdzenie czy podany plik z danymi zespołów ma wymagane kolumny
+# Sprawdzenie kolumn w podanym pliku z danymi zespołów
 def verify_teams_csv(path: str) -> bool:
 	with open(path, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=',')
@@ -167,7 +168,7 @@ def verify_teams_csv(path: str) -> bool:
 		)
 
 
-# Sprawdzenie katalogu czy zawiera pliki z danymi zespołów
+# Sprawdzenie, czy w bieżący katalog zawiera pliki z danymi zespołów
 def get_teams_csv_files_in_dir() -> list[str]:
 	csv_files: list[str] = []
 	files = [f for f in os.listdir() if os.path.isfile(f)]
@@ -190,7 +191,7 @@ def choose_teams_csv_file() -> str:
 
 		while True:
 			try:
-				num = int(input(f'Wybór (1-{len(csv_files)}): '))
+				num = int(input(f'Wybór (1-{len(csv_files)}): ').strip())
 			except ValueError:
 				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
@@ -217,7 +218,7 @@ def choose_teams_csv_file() -> str:
 				print(f'{x}. {options[x]}')
 
 			try:
-				num = int(input('Wybór (1-2): '))
+				num = int(input('Wybór (1-2): ').strip())
 			except ValueError:
 				print('\nPodaj liczbę 1 lub 2.')
 				continue
@@ -226,13 +227,13 @@ def choose_teams_csv_file() -> str:
 				if num == 1:
 					return csv_files[0]
 				else:
-					break
+					return ''
 			else:
 				print('\nPodaj liczbę 1 lub 2.')
 				continue
 
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o zespołach:\n')
+		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o zespołach:\n').strip()
 
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -299,7 +300,7 @@ def read_championship() -> int:
 			print(f'{x + 1}. {championships[x].name}')
 
 		try:
-			num = int(input(f'Wybór (1-{len(championships)}): '))
+			num = int(input(f'Wybór (1-{len(championships)}): ').strip())
 		except (TypeError, ValueError):
 			print(f'\nPodaj liczbę naturalną z przedziału 1-{len(championships)}')
 			continue
@@ -312,7 +313,7 @@ def read_championship() -> int:
 
 
 # Zapisanie danych o zespołach w bazie
-def team_data_to_db_mode() -> None:
+def save_teams_data_to_db() -> None:
 	from common.db_queries.team_tables import add_teams
 	from common.db_queries.entity_table import get_entity_type_id
 
@@ -336,15 +337,19 @@ def team_data_to_db_mode() -> None:
 
 	chosen_file: str = choose_teams_csv_file()
 
+	if chosen_file == '':
+		return
+
 	teams: list[Team] = read_teams_csv(chosen_file)
+
+	if len(teams) == 0:
+		return
 
 	championship_id: int = read_championship()
 
-	add_teams(teams, championship_id, plwiki_id, team_type_id)
+	print()
 
-	# for team in teams:
-	# 	if add_team(team, championship_id, plwiki_id, team_type_id):
-	# 		print(f'{team.codename} - dodano pomyślnie do bazy')
+	add_teams(teams, championship_id, plwiki_id, team_type_id)
 
 
 # Wybór trybu pracy skryptu
@@ -362,7 +367,7 @@ def choose_mode() -> None:
 			print(f'{o}. {options[o]}')
 
 		try:
-			num = int(input(f'Wybór 1-{len(options)}: '))
+			num = int(input(f'Wybór 1-{len(options)}: ').strip())
 		except ValueError:
 			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
@@ -371,10 +376,10 @@ def choose_mode() -> None:
 			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
 		elif num == 1:
-			team_data_to_csv_mode()
+			dump_teams_data_to_csv()
 			break
 		elif num == 2:
-			team_data_to_db_mode()
+			save_teams_data_to_db()
 			break
 		elif num == 3:
 			return

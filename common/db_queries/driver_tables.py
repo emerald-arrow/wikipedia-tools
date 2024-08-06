@@ -104,7 +104,8 @@ def get_driver_by_codename(codename: str, wiki_id: int) -> Driver | None:
 			return Driver(
 				db_id=int(result[2]),
 				nationality=result[0],
-				short_link=result[1]
+				short_link=result[1],
+				codename=codename
 			)
 
 

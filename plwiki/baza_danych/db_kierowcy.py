@@ -1,19 +1,20 @@
 import sys
-import os
-import csv
-import re
-from pathlib import Path
-
-project_path = str(Path(__file__).parent.parent.parent)
-if project_path not in sys.path:
-	sys.path.append(project_path)
-
-if True:  # noqa: E402
-	from common.models.driver import Driver
-	from common.db_queries.wikipedia_table import get_wiki_id
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	import os
+	import csv
+	import re
+	from pathlib import Path
+
+	project_path = str(Path(__file__).parent.parent.parent)
+	if project_path not in sys.path:
+		sys.path.append(project_path)
+
+	from common.models.driver import Driver
+	from common.db_queries.wikipedia_table import get_wiki_id
 
 
 # Zapisanie danych o kierowcach do pliku .csv
@@ -61,8 +62,10 @@ def read_results_csv(file: str, wiki_id: int) -> list[Driver]:
 				lastname = row.get(f'DRIVER{x}_SECONDNAME')
 
 				if (
-						firstname is not None and lastname is not None
-						and firstname != '' and lastname != ''
+					firstname is not None
+					and firstname != ''
+					and lastname is not None
+					and lastname != ''
 				):
 					driver_codename = '%s %s' % (
 						firstname.lower(),
@@ -117,7 +120,7 @@ def verify_results_csv(file) -> bool:
 # Odczytanie ścieżki do pliku z wynikami
 def read_results_csv_path() -> str:
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
 
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -133,20 +136,22 @@ def read_results_csv_path() -> str:
 
 
 # Tworzenie pliku .csv z danymi kierowców
-def driver_data_to_csv_mode() -> None:
+def dump_drivers_data_to_csv() -> None:
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
 		return
 
 	if plwiki_id == -1:
-		print('Nie znaleziono w bazie danych polskiej wersji Wikipedii')
+		print('\nNie znaleziono w bazie danych polskiej wersji Wikipedii')
+		return
 
 	path: str = read_results_csv_path()
 
 	drivers: list[Driver] = read_results_csv(path, plwiki_id)
 
 	if len(drivers) == 0:
+		print('\nNie znaleziono nowych kierowców. Skrypt zakończy działanie.')
 		return
 
 	write_drivers_csv(drivers)
@@ -180,7 +185,7 @@ def get_drivers_csv_files_in_dir() -> list[str]:
 	return csv_files
 
 
-# Wybór pliku z danymi o kierowcach
+# Wybór pliku z danymi kierowców
 def choose_drivers_csv_file() -> str:
 	csv_files: list[str] = get_drivers_csv_files_in_dir()
 
@@ -190,7 +195,7 @@ def choose_drivers_csv_file() -> str:
 				print(f'{x + 1}. {csv_files[x]}')
 
 			try:
-				num = int(input(f'Wybór (1-{len(csv_files)}): '))
+				num = int(input(f'Wybór (1-{len(csv_files)}): ').strip())
 			except ValueError:
 				print('\nPodaj liczbę widoczną przy nazwie pliku')
 				continue
@@ -211,13 +216,13 @@ def choose_drivers_csv_file() -> str:
 				f'\nJedyny znaleziony plik to {csv_files[0]}.',
 				'Czy chcesz zapisać jego zawartość do bazy danych?'
 			]
-			print(' '.join(msg))
+			print(*msg, sep=' ')
 
 			for x in options:
 				print(f'{x}. {options[x]}')
 
 			try:
-				num = int(input('Wybór (1-2): '))
+				num = int(input('Wybór (1-2): ').strip())
 			except ValueError:
 				print('\nPodaj liczbę 1 lub 2.')
 				continue
@@ -226,13 +231,13 @@ def choose_drivers_csv_file() -> str:
 				if num == 1:
 					return csv_files[0]
 				else:
-					break
+					return ''
 			else:
 				print('\nPodaj liczbę 1 lub 2.')
 				continue
 
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o kierowcach:\n')
+		text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o kierowcach:\n').strip()
 
 		if not os.path.isfile(text):
 			print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -271,10 +276,10 @@ def read_drivers_csv(path: str) -> list[Driver]:
 			):
 				drivers.append(
 					Driver(
-						codename,
-						flag,
-						short_link,
-						long_link
+						codename=codename,
+						nationality=flag,
+						short_link=short_link,
+						long_link=long_link
 					)
 				)
 
@@ -284,7 +289,7 @@ def read_drivers_csv(path: str) -> list[Driver]:
 
 
 # Zapisanie danych o kierowcach w bazie
-def driver_data_to_db_mode() -> None:
+def save_drivers_data_to_db() -> None:
 	from common.db_queries.driver_tables import add_drivers
 	from common.db_queries.entity_table import get_entity_type_id
 
@@ -307,6 +312,9 @@ def driver_data_to_db_mode() -> None:
 		return
 
 	chosen_file: str = choose_drivers_csv_file()
+
+	if chosen_file == '':
+		return
 
 	drivers: list[Driver] = read_drivers_csv(chosen_file)
 
@@ -333,7 +341,7 @@ def choose_mode() -> None:
 			print(f'{o}. {options[o]}')
 
 		try:
-			num = int(input('Wybór: '))
+			num = int(input('Wybór: ').strip())
 		except ValueError:
 			print(f'\nPodaj liczbę z przedziału 1-{len(options)}.')
 			continue
@@ -342,10 +350,10 @@ def choose_mode() -> None:
 			print('\nWybór spoza powyższej listy, spróbuj ponownie.')
 			continue
 		elif num == 1:
-			driver_data_to_csv_mode()
+			dump_drivers_data_to_csv()
 			break
 		elif num == 2:
-			driver_data_to_db_mode()
+			save_drivers_data_to_db()
 			break
 		elif num == 3:
 			return
