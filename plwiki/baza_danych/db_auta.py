@@ -1,19 +1,20 @@
 import sys
-import os
-import csv
-import re
-from pathlib import Path
-
-project_path = str(Path(__file__).parent.parent.parent)
-if project_path not in sys.path:
-    sys.path.append(project_path)
-
-if True:  # noqa: E402
-    from common.db_queries.wikipedia_table import get_wiki_id
-    from common.models.car import Car
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+    import os
+    import csv
+    import re
+    from pathlib import Path
+
+    project_path = str(Path(__file__).parent.parent.parent)
+    if project_path not in sys.path:
+        sys.path.append(project_path)
+
+    from common.db_queries.wikipedia_table import get_wiki_id
+    from common.models.car import Car
 
 
 # Zapisanie nazw samochodów do pliku .csv
@@ -96,7 +97,7 @@ def verify_results_csv(path: str) -> bool:
 # Odczytanie ścieżki do pliku csv zawierającego wyniki
 def read_path_to_results_csv() -> str:
     while True:
-        text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+        text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
 
         if not os.path.isfile(text):
             print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -124,6 +125,7 @@ def dump_cars_data_to_csv() -> None:
     cars: list[Car] = read_results_csv(path, plwiki_id)
 
     if len(cars) == 0:
+        print('\nNie znaleziono nowych aut. Skrypt zakończy pracę.')
         return
 
     write_cars_csv(cars)
@@ -165,7 +167,7 @@ def choose_car_csv_file() -> str:
                 print(f'{x + 1}. {csv_files[x]}')
 
             try:
-                num = int(input(f'Wybór (1-{len(csv_files)}): '))
+                num = int(input(f'Wybór (1-{len(csv_files)}): ').strip())
             except ValueError:
                 print('\nPodaj liczbę widoczną przy nazwie pliku')
                 continue
@@ -186,13 +188,13 @@ def choose_car_csv_file() -> str:
                 f'\nJedyny znaleziony plik to {csv_files[0]}.',
                 'Czy chcesz zapisać jego zawartość do bazy danych?'
             ]
-            print(' '.join(msg))
+            print(*msg, sep=' ')
 
             for x in options:
                 print(f'{x}. {options[x]}')
 
             try:
-                num = int(input('Wybór (1-2): '))
+                num = int(input('Wybór (1-2): ').strip())
             except ValueError:
                 print('\nPodaj liczbę 1 lub 2.')
                 continue
@@ -201,13 +203,13 @@ def choose_car_csv_file() -> str:
                 if num == 1:
                     return csv_files[0]
                 else:
-                    break
+                    return ''
             else:
                 print('\nPodaj liczbę 1 lub 2.')
                 continue
 
     while True:
-        text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o autach:\n')
+        text = input('\nPodaj ścieżkę do pliku .csv zawierającego dane o autach:\n').strip()
 
         if not os.path.isfile(text):
             print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
@@ -269,10 +271,16 @@ def save_cars_data_to_db() -> None:
 
     chosen_file: str = choose_car_csv_file()
 
+    if chosen_file == '':
+        return
+
     cars: list[Car] = read_cars_csv(chosen_file)
 
     if len(cars) == 0:
+        print('\nNie wczytano żadnych aut. Skrypt zakończy pracę.')
         return
+
+    print()
 
     add_cars(cars, plwiki_id)
 
@@ -292,7 +300,7 @@ def choose_mode() -> None:
             print(f'{o}. {options[o]}')
 
         try:
-            num = int(input(f'Wybór (1-{len(options)}): '))
+            num = int(input(f'Wybór (1-{len(options)}): ').strip())
         except ValueError:
             print('\nPodaj liczbę między 1 a 3.')
             continue
