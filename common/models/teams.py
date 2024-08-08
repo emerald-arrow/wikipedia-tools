@@ -9,13 +9,12 @@ class Team:
         self.db_id = db_id
 
     def __repr__(self) -> str:
-        return '%s,%s,%s,%s,%s,%s' % (
+        return '%s,%s,%s,%s,%s' % (
             self.codename,
             self.nationality,
             self.car_number,
             self.short_link,
-            self.long_link,
-            self.db_id
+            self.long_link
         )
 
     def __eq__(self, other: object) -> bool:

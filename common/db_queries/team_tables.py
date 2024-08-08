@@ -116,6 +116,14 @@ def get_id_and_scoring(codename: str, championship_id: int) -> TeamEligibility |
 		if result is None:
 			return TeamEligibility()
 		else:
+			refresh_query = '''
+				UPDATE team
+				SET last_used = CURRENT_TIMESTAMP
+				WHERE id = :team_id;
+			'''
+
+			db.execute(refresh_query, {'team_id': int(result[0])})
+
 			return TeamEligibility(
 				team=Team(
 					db_id=int(result[0]),

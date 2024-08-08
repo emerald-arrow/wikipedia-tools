@@ -38,3 +38,18 @@ def get_manufacturers() -> list[Manufacturer] | None:
 				)
 
 		return manufacturers
+
+
+# Refreshes manufacturers timestamps
+def refresh_manufacturers_timestamps(ids: list[int]) -> None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	for i in ids:  # type: int
+		with db:
+			query = 'UPDATE manufacturer SET last_used = CURRENT_TIMESTAMP WHERE id = id;'
+
+			db.execute(query, {'id': i})

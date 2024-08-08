@@ -3,7 +3,7 @@ import sys
 from sqlite3 import Connection
 from pathlib import Path
 
-# Stops Python from creating __pycache__
+# Prevents creating __pycache__ directory
 sys.dont_write_bytecode = True
 
 # Establishing database's path

@@ -78,38 +78,6 @@ def get_driver_data_by_codename(codename: str, wiki_id: int) -> Driver | None:
 			)
 
 
-# Gets driver's id, link and flag by codename
-def get_driver_by_codename(codename: str, wiki_id: int) -> Driver | None:
-	db = db_connection()
-
-	if db is None:
-		print("Couldn't connect to the database.")
-		return None
-
-	with db:
-		query = '''
-			SELECT d.flag, dw.short_link, d.id
-			FROM driver d
-			JOIN driver_wikipedia dw
-			ON d.id = dw.driver_id
-			WHERE codename = :codename
-			AND wikipedia_id = :wiki_id;
-		'''
-		params = {'codename': codename, 'wiki_id': wiki_id}
-
-		result = db.execute(query, params).fetchone()
-
-		if result is None:
-			return Driver()
-		else:
-			return Driver(
-				db_id=int(result[2]),
-				nationality=result[0],
-				short_link=result[1],
-				codename=codename
-			)
-
-
 # Adds drivers data to the database
 def add_drivers(drivers: list[Driver], wiki_id: int, type_id: int) -> None:
 	db = db_connection()

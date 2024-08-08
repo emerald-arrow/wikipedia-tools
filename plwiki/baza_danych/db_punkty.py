@@ -16,7 +16,6 @@ if True:  # noqa: E402
 	from common.models.classifications import Classification, EligibleClassifications, ClassificationScoring
 	from common.models.manufacturer import Manufacturer, ManufacturerScoringCars
 	from common.models.results import ResultRow
-	from common.models.aliases import EntityDict
 	from common.models.championship import Championship
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
@@ -188,11 +187,11 @@ def read_results_csv(
 	wiki_id: int
 ) -> list[ResultRow]:
 	from common.db_queries.team_tables import get_id_and_scoring
-	from common.db_queries.driver_tables import get_driver_by_codename
+	from common.db_queries.driver_tables import get_driver_data_by_codename
 	from common.db_queries.manufacturer_table import get_manufacturers
 
 	rows: list[ResultRow] = list()
-	not_found: EntityDict = {'teams': [], 'drivers': []}
+	not_found: dict[str, list[str]] = {'teams': [], 'drivers': []}
 	manufacturers: list[Manufacturer] | None = None
 
 	if manufacturer_classifications_num > 0:
@@ -258,7 +257,7 @@ def read_results_csv(
 				driver_codename = driver_codename.lstrip()
 
 				if len(driver_codename) > 1:
-					driver_data: Driver | None = get_driver_by_codename(driver_codename.lower(), wiki_id)
+					driver_data: Driver | None = get_driver_data_by_codename(driver_codename.lower(), wiki_id)
 					if driver_data is None or driver_data.empty_fields():
 						not_found['drivers'].append(driver_codename)
 					else:
@@ -624,6 +623,8 @@ def main() -> None:
 		get_styled_nonscoring_statuses,
 		get_styled_points_system
 	)
+	from common.db_queries.manufacturer_table import refresh_manufacturers_timestamps
+
 	cannot_continue_error: str = '\nSkrypt nie może kontynuować działania.'
 
 	# Pobranie id polskiej wersji Wikipedii z bazy danych
@@ -747,6 +748,15 @@ def main() -> None:
 
 	# Dodanie wyników do bazy danych
 	add_results_to_db(rows, round_num, session)
+
+	# Odświeżenie stempli czasowych producentów
+	manufacturers_ids: list[int] = list()
+
+	for row in rows:  # type: ResultRow
+		if row.manufacturer is not None:
+			manufacturers_ids.append(row.manufacturer.db_id)
+
+	refresh_manufacturers_timestamps(manufacturers_ids)
 
 
 if __name__ == '__main__':
