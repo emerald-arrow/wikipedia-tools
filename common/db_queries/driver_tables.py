@@ -35,8 +35,8 @@ def check_driver_exists(codename: str, wikipedia_id: int) -> bool | None:
 		return False if result[0] is None else bool(result[0])
 
 
-# Gets driver's links and flag from the database and refreshes driver's last used timestamp
-def get_driver_flag_links(codename: str, wiki_id: int) -> Driver | None:
+# Gets driver's data and refreshes driver's last used timestamp
+def get_driver_data_by_codename(codename: str, wiki_id: int) -> Driver | None:
 	db = db_connection()
 
 	if db is None:
@@ -73,7 +73,8 @@ def get_driver_flag_links(codename: str, wiki_id: int) -> Driver | None:
 				codename=codename,
 				nationality=result[2],
 				short_link=result[0],
-				long_link=result[1]
+				long_link=result[1],
+				db_id=int(result[3])
 			)
 
 

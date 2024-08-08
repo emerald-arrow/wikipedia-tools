@@ -6,18 +6,18 @@ sys.dont_write_bytecode = True
 if True:  # noqa: E402
 	from sqlite3 import Connection
 	from common.db_connect import db_connection
-	from common.models.championships import Championship, ChampionshipExt
+	from common.models.championship import Championship
 
 
 # Gets championships data with organiser names
-def get_championships() -> list[ChampionshipExt] | None:
+def get_championships() -> list[Championship] | None:
 	db: Connection | None = db_connection()
 
 	if db is None:
 		print("Couldn't connect to the database.")
 		return None
 
-	championships: list[ChampionshipExt] = list()
+	championships: list[Championship] = list()
 
 	with db:
 		query = '''
@@ -32,7 +32,7 @@ def get_championships() -> list[ChampionshipExt] | None:
 		if result is not None:
 			for r in result:
 				championships.append(
-					ChampionshipExt(
+					Championship(
 						db_id=int(r[0]),
 						name=r[1],
 						organiser=r[2]

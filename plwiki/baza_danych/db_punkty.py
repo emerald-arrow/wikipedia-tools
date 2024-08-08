@@ -17,7 +17,7 @@ if True:  # noqa: E402
 	from common.models.manufacturer import Manufacturer, ManufacturerScoringCars
 	from common.models.results import ResultRow
 	from common.models.aliases import EntityDict
-	from common.models.championships import ChampionshipExt
+	from common.models.championship import Championship
 	from common.models.sessions import DbSession
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import Driver
@@ -28,7 +28,7 @@ if True:  # noqa: E402
 def read_championship() -> int | None:
 	from common.db_queries.championship_table import get_championships_with_classifications
 
-	championships: list[ChampionshipExt] | None = get_championships_with_classifications()
+	championships: list[Championship] | None = get_championships_with_classifications()
 
 	if championships is None:
 		return None
@@ -259,7 +259,7 @@ def read_results_csv(
 
 				if len(driver_codename) > 1:
 					driver_data: Driver | None = get_driver_by_codename(driver_codename.lower(), wiki_id)
-					if driver_data is None:
+					if driver_data is None or driver_data.empty_fields():
 						not_found['drivers'].append(driver_codename)
 					else:
 						row_drivers.append(driver_data)

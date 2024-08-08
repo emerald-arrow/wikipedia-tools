@@ -1,7 +1,7 @@
 class Driver:
     def __init__(
             self, codename: str = '', nationality: str = '',
-            short_link: str = '', long_link: str = '', db_id: int = -1
+            short_link: str = '', long_link: str = '', db_id: int | None = None
     ) -> None:
         self.codename = codename
         self.nationality = nationality
