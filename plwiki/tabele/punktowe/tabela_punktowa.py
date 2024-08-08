@@ -187,7 +187,7 @@ def print_classification(
 				link=entity.link
 			))
 
-		print(*name_cell, sep='')
+		print(*name_cell, sep=' ')
 
 		result_cells: list[list[str]] = list()
 
