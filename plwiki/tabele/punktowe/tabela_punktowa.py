@@ -1,20 +1,21 @@
 import sys
-from pathlib import Path
-
-project_path = str(Path(__file__).parent.parent.parent.parent)
-if project_path not in sys.path:
-	sys.path.append(project_path)
-
-if True:  # noqa: E402
-	from common.db_queries.championship_table import get_championships_with_results
-	from common.db_queries.classification_tables import get_classifications_by_champ_id
-	from common.models.championships import Championship
-	from common.models.classifications import Classification
-	from common.models.results import EntityResults, RoundResult
-	from common.models.styles import LocalisedAbbreviation
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
+
+if True:  # noqa: E402
+	from pathlib import Path
+
+	project_path = str(Path(__file__).parent.parent.parent.parent)
+	if project_path not in sys.path:
+		sys.path.append(project_path)
+
+	from common.db_queries.championship_table import get_championships_with_results
+	from common.db_queries.classification_tables import get_classifications_by_champ_id
+	from common.models.championship import Championship
+	from common.models.classifications import Classification
+	from common.models.results import EntityResults, RoundResult
+	from common.models.styles import LocalisedAbbreviation
 
 
 # Wybór serii wyścigowej
@@ -39,7 +40,7 @@ def read_championship() -> Championship | None:
 				print(f'{x+1}. {options[x]}')
 
 			try:
-				num = int(input('Wybór (1-2): '))
+				num: int = int(input('Wybór (1-2): ').strip())
 			except (TypeError, ValueError):
 				print(f'\nPodaj liczbę 1 lub 2')
 				continue
@@ -57,7 +58,7 @@ def read_championship() -> Championship | None:
 				print(f'{x+1}. {championships[x].name}')
 
 			try:
-				num = int(input(f'Wybór (1-{len(championships)}): '))
+				num: int = int(input(f'Wybór (1-{len(championships)}): ').strip())
 			except (TypeError, ValueError):
 				print(f'Podaj liczbę naturalną z przedziału 1-{len(championships)}')
 				continue
@@ -74,7 +75,11 @@ def read_classification(championship_id: int) -> Classification | None:
 	classifications: list[Classification] | None = get_classifications_by_champ_id(championship_id)
 
 	if classifications is None:
-		return
+		return None
+
+	if len(classifications) == 0:
+		print('\nW bazie danych nie znaleziono żadnych klasyfikacji')
+		return None
 
 	while True:
 		print('\nWybierz klasyfikację z poniższej listy:')
@@ -83,7 +88,7 @@ def read_classification(championship_id: int) -> Classification | None:
 			print(f'{x+1}. {classifications[x].season} {classifications[x].name}')
 
 		try:
-			num = int(input(f'Wybór (1-{len(classifications)}): '))
+			num: int = int(input(f'Wybór (1-{len(classifications)}): ').strip())
 		except (TypeError, ValueError):
 			print(f'Podaj liczbę naturalną z przedziału 1-{len(classifications)}')
 			continue
@@ -109,21 +114,21 @@ def get_round_numbers(classification_id: int) -> tuple[int, int] | None:
 	if season_rounds == -1:
 		while True:
 			try:
-				season_rounds = int(input('\nLiczba wyścigów w sezonie: '))
+				season_rounds: int = int(input('\nLiczba wyścigów w sezonie: ').strip())
 			except (TypeError, ValueError):
 				print('\nPodaj liczbę naturalną.')
 				continue
+
+			if season_rounds <= 0:
+				print('\nPodaj liczbę naturalną.')
+				continue
 			else:
-				if season_rounds <= 0:
-					print('\nPodaj liczbę naturalną.')
-					continue
-				else:
-					break
+				break
 
 	if rounds_held == -1:
 		while True:
 			try:
-				rounds_held: int = int(input('\nLiczba rozegranych wyścigów: '))
+				rounds_held: int = int(input('\nLiczba rozegranych wyścigów: ').strip())
 			except (TypeError, ValueError):
 				print('\nPodaj liczbę naturalną.')
 				continue
@@ -142,8 +147,8 @@ def get_round_numbers(classification_id: int) -> tuple[int, int] | None:
 
 # Wypisanie klasyfikacji
 def print_classification(
-	entities: list[EntityResults], rounds_held: int, season_rounds: int, wiki_id: int,
-	rowspan: int
+	entities: list[EntityResults], rounds_held: int,
+	season_rounds: int, wiki_id: int, rowspan: int
 ) -> None:
 	from common.db_queries.points_tables import get_nonscoring_abbreviations
 
@@ -171,9 +176,16 @@ def print_classification(
 			name_cell.append(f'| align="left" rowspan="{rowspan}"')
 
 		if entity.car_no is not None:
-			name_cell.append(f' | {{{{Flaga|{entity.flag}}}}} #{entity.car_no} {entity.link}')
+			name_cell.append('| {{{{Flaga|{flag}}}}} #{number} {link}'.format(
+				flag=entity.flag,
+				number=entity.car_no,
+				link=entity.link
+			))
 		else:
-			name_cell.append(f' | {{{{Flaga|{entity.flag}}}}} {entity.link}')
+			name_cell.append('| {{{{Flaga|{flag}}}}} {link}'.format(
+				flag=entity.flag,
+				link=entity.link
+			))
 
 		print(*name_cell, sep='')
 
@@ -271,15 +283,15 @@ def main() -> None:
 	if classification is None:
 		return
 
-	rowspan: int = 1
+	result_rows: int = 1
 
 	if classification.cl_type == 'MANUFACTURERS':
 		cars: str = get_manufacturer_scoring_cars(classification.db_id)
 
 		if cars != '' and cars != 'ALL':
-			rowspan = int(cars)
+			result_rows = int(cars)
 		elif cars == 'ALL':
-			rowspan = 10
+			result_rows = 10
 
 	# Pobranie listy kierowców/producentów/zespołów z wynikami
 	results: list[EntityResults] = get_classification_results(classification, plwiki_id)
@@ -291,7 +303,7 @@ def main() -> None:
 		return
 
 	# Wyświetlenie zastrzeżenia dotyczącego oznaczania pole position producenta, jeśli punktuje więcej niż jedno auto
-	if rowspan > 1 and classification.cl_type == 'MANUFACTURERS':
+	if result_rows > 1 and classification.cl_type == 'MANUFACTURERS':
 		import time
 
 		msg: list[str] = [
@@ -308,7 +320,7 @@ def main() -> None:
 		rounds_held=race_numbers[0],
 		season_rounds=race_numbers[1],
 		wiki_id=plwiki_id,
-		rowspan=rowspan
+		rowspan=result_rows
 	)
 
 

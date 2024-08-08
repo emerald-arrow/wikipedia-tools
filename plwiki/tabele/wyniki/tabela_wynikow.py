@@ -1,28 +1,30 @@
 import sys
-import os
-import csv
-from pathlib import Path
-
-project_path = str(Path(__file__).parent.parent.parent.parent)
-if project_path not in sys.path:
-	sys.path.append(project_path)
-
-if True:  # noqa: E402
-	from common.models.sessions import Session
-	from common.models.championships import ChampionshipExt
-	from common.models.driver import Driver
-	from common.db_queries.wikipedia_table import get_wiki_id
-	from common.db_queries.team_tables import get_team_data
-	from common.db_queries.driver_tables import get_driver_flag_links
-	from common.db_queries.car_tables import get_car_link
-	from common.db_queries.championship_table import get_championships
 
 # Powstrzymanie Pythona od tworzenia dodatkowych plików i katalogów przy wykonywaniu skryptu
 sys.dont_write_bytecode = True
 
+if True:  # noqa: E402
+	import os
+	from csv import DictReader
+	from pathlib import Path
+
+	project_path = str(Path(__file__).parent.parent.parent.parent)
+	if project_path not in sys.path:
+		sys.path.append(project_path)
+
+	from common.models.sessions import Session
+	from common.models.championship import Championship
+	from common.models.driver import Driver
+	from common.models.teams import Team
+	from common.db_queries.wikipedia_table import get_wiki_id
+	from common.db_queries.team_tables import get_team_data
+	from common.db_queries.driver_tables import get_driver_data_by_codename
+	from common.db_queries.car_tables import get_car_link
+	from common.db_queries.championship_table import get_championships
+
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników wyścigu
-def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
+def print_race_table(championship: Championship, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%;"',
 		'|+ Klasyfikacja wstępna/ostateczna',
@@ -37,23 +39,23 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 	]
 
 	print('\nKod tabeli:\n')
-	print('\n'.join(table_header))
+	print(*table_header, sep='\n')
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_reader = csv.DictReader(csv_file, delimiter=';')
-		line_count = 0
-		class_winners = set()
-		statuses = set()
+		csv_reader: DictReader[str] = DictReader(csv_file, delimiter=';')
+		line_count: int = 0
+		class_winners: set[str] = set()
+		statuses: set[str] = set()
 
-		for row in csv_reader:  # type: dict
-			status = row['STATUS']
+		for row in csv_reader:  # type: dict[str]
+			status: str = row['STATUS']
 
 			if status != 'Classified' and status not in statuses:
 				statuses.add(status)
 				print('|-')
 				print(f'! colspan="8" | {status}')
 
-			category = row['CLASS']
+			category: str = row['CLASS']
 
 			# Pogrubienie wierszy ze zwycięzcami klas
 			if category not in class_winners:
@@ -69,19 +71,19 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 				print('!')
 
 			# Wypisanie klasy z ewentualną dodatkową grupą (np. Pro/Am)
-			if row['GROUP'] != '':
+			if 'GROUP' in row and row['GROUP'] != '':
 				print(f'| align="center" | {category}<br />{row['GROUP']}')
 			else:
 				print(f'| align="center" | {category}')
 
 			# Wypisanie nazwy zespołu, numeru auta i odpowiedniej flagi
-			team_data = get_team_data(
+			team_data: Team | None = get_team_data(
 				codename=f'#{row["NUMBER"]} {row["TEAM"]}',
 				championship_id=championship.db_id,
 				wiki_id=wiki_id
 			)
 
-			if not team_data.empty_fields():
+			if team_data is not None and not team_data.empty_fields():
 				print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
 					country=team_data.nationality,
 					number=team_data.car_number,
@@ -96,65 +98,53 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 			# Wypisanie listy kierowców z flagami
 			drivers: list[Driver] = list()
 
-			# Składy są najwyżej czteroosobowe
-			for x in range(1, 5):
-				driver_data: Driver | None = None
+			if 'DRIVER_1' in row:
+				driver_columns: list[str] = ['DRIVER_{number}']
+			elif 'DRIVER1_FIRSTNAME' in row and 'DRIVER1_SECONDNAME' in row:
+				driver_columns: list[str] = ['DRIVER{number}_FIRSTNAME', 'DRIVER{number}_SECONDNAME']
+			else:
+				print('| Imiona i nazwiska kierowców znajdują się w innych kolumnach niż przewiduje skrypt.')
 
-				# Najpierw sprawdzenie nazwy kolumny z danymi kierowców
-				if row.get(f'DRIVER_{x}') is not None:
-					# Przerwanie pętli w razie znalezienia pustego łańcucha znaków zamiast imienia i nazwiska
-					if row.get(f'DRIVER_{x}') == '':
-						break
+			# Składy są co najwyżej czteroosobowe
+			for x in range(1, 5):  # type: int
+				driver_codename: str = ''
 
-					driver_data = get_driver_flag_links(row[f'DRIVER_{x}'].lower(), wiki_id)
-					if driver_data.empty_fields():
-						driver_name = row[f'DRIVER_{x}'].split(" ", 1)
+				for column in driver_columns:  # type: str
+					driver_codename += f' {row[column.format(number=x)]}'
+
+				driver_codename = driver_codename.lstrip()
+
+				if len(driver_codename) > 1:
+					driver_data: Driver | None = get_driver_data_by_codename(driver_codename.lower(), wiki_id)
+
+					if driver_data is not None and not driver_data.empty_fields():
+						driver_name = driver_codename.split(' ', 1)
 						driver_data = Driver(
 							nationality='?',
-							short_link=f'[[{driver_name[0]} {driver_name[1].capitalize()}]]',
+							short_link=f'[[{driver_name[0]} {driver_name[1].capitalize()}]]'
 						)
-					drivers.append(driver_data)
-				elif row.get(f'DRIVER{x}_FIRSTNAME') is not None:
-					if row.get(f'DRIVER{x}_FIRSTNAME') == '':
-						break
 
-					codename = '%s %s' % (
-						row[f'DRIVER{x}_FIRSTNAME'],
-						row[f'DRIVER{x}_SECONDNAME'].capitalize()
-					)
-					driver_data = get_driver_flag_links(codename.lower(), wiki_id)
-					if driver_data.empty_fields():
-						driver_data = Driver(
-							nationality='?',
-							short_link=f'[[{codename}]]'
-						)
 					drivers.append(driver_data)
-				else:
-					print('| Imiona i nazwiska kierowców znajdują się w innych kolumnach niż przewiduje skrypt.')
-					break
 
-			for x in range(0, len(drivers)):
+			for x in range(0, len(drivers)):  # type: int
 				if x == 0:
-					print('| {{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].long_link if drivers[x].long_link != ''
-						else drivers[x].short_link
-					), end='')
-				elif x == len(drivers) - 1:
-					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].long_link if drivers[x].long_link != ''
-						else drivers[x].short_link
-					))
+					start: str = '| '
+					end: str = ''
+				elif 0 < x < len(drivers) - 1:
+					start: str = '<br />'
+					end: str = ''
 				else:
-					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].long_link if drivers[x].long_link != ''
-						else drivers[x].short_link
-					), end='')
+					start: str = '<br />'
+					end: str = '\n'
+
+				print('{start}{{{{Flaga|{flag}}}}} {link}'.format(
+					start=start,
+					flag=drivers[x].nationality,
+					link=drivers[x].long_link if drivers[x].long_link != '' else drivers[x].short_link
+				), end=end)
 
 			# Wypisanie auta
-			car = get_car_link(row['VEHICLE'], wiki_id)
+			car: str | None = get_car_link(row['VEHICLE'], wiki_id)
 
 			if car is None or car == '':
 				car = f'[[{row["VEHICLE"]}]]'
@@ -162,7 +152,7 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 			print(f'| {car}')
 
 			# Wypisanie opon
-			tyre_oem = row['TYRES'] if 'TYRES' in row else row['TIRES']
+			tyre_oem: str = row['TYRES'] if 'TYRES' in row else row['TIRES']
 
 			print('| align="center" | {{Opony|%s}}' % tyre_oem)
 
@@ -182,7 +172,7 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 					print(f'| {gap}')
 				# Wypisanie czasu wyścigu u zwycięzcy
 				elif line_count == 0:
-					total_time = row['TOTAL_TIME'].replace('.', ',').replace('\'', ':')
+					total_time: str = row['TOTAL_TIME'].replace('.', ',').replace('\'', ':')
 					print(f'| align="center" | {total_time}')
 			else:
 				# Wypisanie pustej komórki, jeśli nieklasyfikowany, zdyskwalifikowany itp.
@@ -197,7 +187,7 @@ def print_race_table(championship: ChampionshipExt, filepath: str, wiki_id: int)
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników kwalifikacji
-def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
+def print_qualifying_table(championship: Championship, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -210,15 +200,15 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 	]
 
 	print('\nKod tabeli:\n')
-	print('\n'.join(table_header))
+	print(*table_header, sep='\n')
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_reader = csv.DictReader(csv_file, delimiter=';')
-		line_count = 0
-		class_polesitters = set()
+		csv_reader: DictReader[str] = DictReader(csv_file, delimiter=';')
+		line_count: int = 0
+		class_polesitters: set[str] = set()
 
-		for row in csv_reader:  # type: dict
-			category = row['CLASS']
+		for row in csv_reader:  # type: dict[str]
+			category: str = row['CLASS']
 
 			# Pogrubienie wierszy ze zdobywcami pole position w klasach
 			if category not in class_polesitters:
@@ -228,20 +218,20 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 				print('|-')
 
 			# Wypisanie pozycji, organizatorzy niejednolicie używają nazwy kolumny z pozycją
-			position = row['POSITION'] if 'POSITION' in row else row['POS']
+			position: str = row['POSITION'] if 'POSITION' in row else row['POS']
 			print(f'! {position}')
 
 			# Wypisanie klasy
 			print(f'| align="center" | {category}')
 
 			# Wypisanie nazwy zespołu z numerem samochodu i flagą
-			team_data = get_team_data(
+			team_data: Team | None = get_team_data(
 				codename=f'#{row["NUMBER"]} {row["TEAM"]}',
 				championship_id=championship.db_id,
 				wiki_id=wiki_id
 			)
 
-			if not team_data.empty_fields():
+			if team_data is not None and not team_data.empty_fields():
 				print('| {{{{Flaga|{country}}}}} #{number} #{team_link}'.format(
 					country=team_data.nationality,
 					number=team_data.car_number,
@@ -256,55 +246,53 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 			drivers: list[Driver] = list()
 
 			# Zebranie danych o kierowcach, maksymalnie składy czteroosobowe
-			for x in range(1, 5):
+			for x in range(1, 5):  # type: int
 				if (
-						row[f'DRIVER{x}_FIRSTNAME'] is None
-						or row[f'DRIVER{x}_FIRSTNAME'] == ''
+					row[f'DRIVER{x}_FIRSTNAME'] is None
+					or row[f'DRIVER{x}_FIRSTNAME'] == ''
 				):
 					continue
 
-				driver_name = '%s %s' % (
-					row[f'DRIVER{x}_FIRSTNAME'].capitalize(),
-					row[f'DRIVER{x}_SECONDNAME'].capitalize()
+				driver_name = '{name} {lastname}'.format(
+					name=row[f'DRIVER{x}_FIRSTNAME'].capitalize(),
+					lastname=row[f'DRIVER{x}_SECONDNAME'].capitalize()
 				)
 
-				driver_data = get_driver_flag_links(driver_name.lower(), wiki_id)
+				driver_data: Driver | None = get_driver_data_by_codename(driver_name.lower(), wiki_id)
 
-				if driver_data is None:
-					driver_data = {
-						'short_link': driver_name,
-						'long_link': '',
-						'nationality': row[f'DRIVER{x}_COUNTRY']
-					}
+				if driver_data is None or driver_data.empty_fields():
+					driver_data = Driver(
+						short_link=driver_name,
+						nationality=row[f'DRIVER{x}_COUNTRY']
+					)
 
-				if driver_data is not None:
-					drivers.append(driver_data)
+				drivers.append(driver_data)
 
 			# Wypisanie kierowców
-			for x in range(0, len(drivers)):
+			for x in range(0, len(drivers)):  # type: int
 				if x == 0:
-					print('| {{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].short_link
-					), end='')
-				elif x == len(drivers) - 1:
-					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].short_link
-					))
+					start: str = '| '
+					end: str = ''
+				elif 0 < x < len(drivers) - 1:
+					start: str = '<br />'
+					end: str = ''
 				else:
-					print('<br />{{Flaga|%s}} %s' % (
-						drivers[x].nationality,
-						drivers[x].short_link
-					), end='')
+					start: str = '<br />'
+					end: str = '\n'
+
+				print('{start}{{{{Flaga|{flag}}}}} {link}'.format(
+					start=start,
+					flag=drivers[x].nationality,
+					link=drivers[x].long_link if drivers[x].long_link != '' else drivers[x].short_link
+				), end=end)
 
 			# Wypisanie uzyskanego czasu i straty
-			time = row['TIME']
+			time: str = row['TIME']
 			if time != '':
 				time = time.replace('.', ',')
 				print(f'| align="center" | {time}')
 
-				gap = row['GAP_FIRST'].replace('.', ',').replace('\'', ':')
+				gap: str = row['GAP_FIRST'].replace('.', ',').replace('\'', ':')
 
 				gap = gap if gap.startswith('+') else f'+{gap}'
 
@@ -333,7 +321,7 @@ def print_qualifying_table(championship: ChampionshipExt, filepath: str, wiki_id
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników sesji kwalifikacyjnej z Hyperpole
-def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
+def print_qualifying_post_hp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -345,16 +333,16 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 	]
 
 	print('\nKod tabeli:\n')
-	print('\n'.join(table_header))
+	print(*table_header, sep='\n')
 
 	# Odczytanie nagłówków kolumn zawierających czasy sesji kwalifikacyjnych
 	session_headers: dict[str, list[str]] = dict()
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_header_reader = csv.DictReader(csv_file, delimiter=';')
-		csv_headers = list(dict(list(csv_header_reader)[0]).keys())
-		q1_headers = [x for x in csv_headers if x.startswith('QP')]
-		hp_headers = [x for x in csv_headers if x.startswith('HP')]
+		csv_header_reader: DictReader[str] = DictReader(csv_file, delimiter=';')
+		csv_headers: list[str] = list(dict(list(csv_header_reader)[0]).keys())
+		q1_headers: list[str] = [x for x in csv_headers if x.startswith('QP')]
+		hp_headers: list[str] = [x for x in csv_headers if x.startswith('HP')]
 
 	if len(q1_headers) > 0:
 		session_headers.update({'QP': q1_headers})
@@ -363,19 +351,19 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 		session_headers.update({'HP': hp_headers})
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_reader = csv.DictReader(csv_file, delimiter=';')
-		line_count = 0
+		csv_reader: DictReader[str] = DictReader(csv_file, delimiter=';')
+		line_count: int = 0
 
-		class_polesitters = set()
+		class_polesitters: set[str] = set()
 
-		for row in csv_reader:  # type: dict
+		for row in csv_reader:  # type: dict[str]
 			print('|-')
 
 			# Wypisanie pozycji, organizatorzy niejednolicie używają nazwy kolumny z pozycją
-			position = row['POSITION'] if 'POSITION' in row else row['POS']
+			position: str = row['POSITION'] if 'POSITION' in row else row['POS']
 			print(f'! {position}')
 
-			category = row['CLASS']
+			category: str = row['CLASS']
 
 			# Pogrubienie nazwy klasy dla zdobywcy pole position w klasie
 			if category not in class_polesitters:
@@ -385,13 +373,13 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 			print(f'| align="center" | {category}')
 
 			# Wypisanie nazwy zespołu z numerem samochodu i flagą
-			team_data = get_team_data(
+			team_data: Team | None = get_team_data(
 				codename=f'#{row["NUMBER"]} {row["TEAM"]}',
 				championship_id=championship.db_id,
 				wiki_id=wiki_id
 			)
 
-			if not team_data.empty_fields():
+			if team_data is not None and not team_data.empty_fields():
 				row_team: str = '{{{{Flaga|{country}}}}} #{number} {team_link}'.format(
 					country=team_data.nationality,
 					number=team_data.car_number,
@@ -408,15 +396,17 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 			else:
 				print(f"| '''{row_team}'''")
 
-			q1_time = ''
+			q1_time: str = ''
 			for q1 in session_headers.get('QP'):
 				if row.get(q1) != '':
 					q1_time = row.get(q1)
+					break
 
-			hp_time = ''
+			hp_time: str = ''
 			for hp in session_headers.get('HP'):
 				if row.get(hp) != '':
 					hp_time = row.get(hp)
+					break
 
 			# Wypisanie uzyskanych czasów
 			if q1_time != '':
@@ -436,7 +426,7 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 				print('| align="center" | —')
 				print('!')
 
-			# Wypisanie pozycji startowej, która jest taka sama jak zajęta pozycja,
+			# Wypisanie pozycji startowej, która jest taka sama jak zajęta pozycja w kwalifikacjach,
 			# chyba że lista z ustawieniem na starcie mówi inaczej
 			print(f'! {position}')
 
@@ -451,7 +441,7 @@ def print_qualifying_post_hp_table(championship: ChampionshipExt, filepath: str,
 
 
 # Odczytanie pliku .CSV i wypisanie kodu tabeli dla wyników sesji kwalifikacyjnej przed Hyperpole
-def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
+def print_qualifying_pre_hp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable sortable" style="font-size: 90%;"',
 		'! {{Tooltip|Poz.|Pozycja}}',
@@ -463,14 +453,14 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 	]
 
 	print('\nKod tabeli:\n')
-	print('\n'.join(table_header))
+	print(*table_header, sep='\n')
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_reader = csv.DictReader(csv_file, delimiter=';')
-		line_count = 0
+		csv_reader: DictReader = DictReader(csv_file, delimiter=';')
+		line_count: int = 0
 		class_fastest: set[str] = set()
 
-		for row in csv_reader:  # type: dict
+		for row in csv_reader:  # type: dict[str]
 			print('|-')
 
 			# Wypisanie pozycji, organizatorzy niejednolicie używają nazwy kolumny z pozycją
@@ -481,13 +471,13 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 			print(f'| align="center" | {row["CLASS"]}')
 
 			# Wypisanie nazwy zespołu z numerem samochodu i flagą
-			team_data = get_team_data(
+			team_data: Team | None = get_team_data(
 				codename=f'#{row["NUMBER"]} {row["TEAM"]}',
 				championship_id=championship.db_id,
 				wiki_id=wiki_id
 			)
 
-			if not team_data.empty_fields():
+			if team_data is not None and not team_data.empty_fields():
 				print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
 					country=team_data.nationality,
 					number=team_data.car_number,
@@ -500,13 +490,13 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 				))
 
 			# Wypisanie uzyskanego czasu
-			time = row['TIME']
+			time: str = row['TIME']
 			if time != '':
 				time = time.replace('.', ',')
-				if row["CLASS"] in class_fastest:
+				if row['CLASS'] in class_fastest:
 					print(f'| align="center" | {time}')
 				else:
-					class_fastest.add(row["CLASS"])
+					class_fastest.add(row['CLASS'])
 					print(f'| align="center" | \'\'\'{time}\'\'\'')
 				print('|')
 			# W razie braku czasu zostaje wypisany myślnik w komórkach dla czasu i straty
@@ -514,7 +504,7 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 				print('| align="center" | —')
 				print('|')
 
-			# Wypisanie pozycji startowej, która jest taka sama jak zajęta pozycja,
+			# Wypisanie pozycji startowej, która jest taka sama jak zajęta pozycja w kwalifikacjach,
 			# chyba że lista z ustawieniem na starcie mówi inaczej
 			print(f'! {position}')
 
@@ -529,7 +519,7 @@ def print_qualifying_pre_hp_table(championship: ChampionshipExt, filepath: str, 
 
 
 # Odczytanie pliku .CSV i wypisanie kodu fragmentu tabeli dla wyników sesji treningowych
-def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -> None:
+def print_fp_table(championship: Championship, filepath: str, wiki_id: int) -> None:
 	table_header = [
 		'{| class="wikitable" style="font-size:95%"',
 		'! Klasa',
@@ -542,14 +532,14 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 	]
 
 	print('\nKod tabeli:\n')
-	print('\n'.join(table_header))
+	print(*table_header, sep='\n')
 
 	with open(filepath, mode='r', encoding='utf-8-sig') as csv_file:
-		csv_reader = csv.DictReader(csv_file, delimiter=';')
-		line_count = 0
-		classes = set()
+		csv_reader: DictReader = DictReader(csv_file, delimiter=';')
+		line_count: int = 0
+		classes: set[str] = set()
 
-		for row in csv_reader:  # type: dict
+		for row in csv_reader:  # type: dict[str]
 			if row['CLASS'] not in classes:
 				classes.add(row['CLASS'])
 
@@ -558,13 +548,13 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 				print(f'! {row['CLASS']}')
 
 				# Wypisanie danych zespołu
-				team_data = get_team_data(
+				team_data: Team | None = get_team_data(
 					codename=f'#{row["NUMBER"]} {row["TEAM"]}',
 					championship_id=championship.db_id,
 					wiki_id=wiki_id
 				)
 
-				if not team_data.empty_fields():
+				if team_data is not None and not team_data.empty_fields():
 					print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
 						country=team_data.nationality,
 						number=team_data.car_number,
@@ -577,7 +567,7 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 					))
 
 				# Wypisanie auta
-				car = get_car_link(row['VEHICLE'], wiki_id)
+				car: str | None = get_car_link(row['VEHICLE'], wiki_id)
 
 				if car is None or car == '':
 					car = f'[[{row["VEHICLE"]}]]'
@@ -585,8 +575,10 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 				print(f'| {car}')
 
 				# Wypisanie czasu
-				if row['TIME'] != '':
-					time = row['TIME'].replace('.', ',')
+				time: str = row['TIME']
+
+				if time != '':
+					time = time.replace('.', ',')
 					print(f'| {time}')
 				else:
 					print(f'|')
@@ -604,20 +596,20 @@ def print_fp_table(championship: ChampionshipExt, filepath: str, wiki_id: int) -
 # Odczytanie ścieżki do pliku
 def read_csv_path() -> str:
 	while True:
-		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n')
+		text: str = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
 
 		if not os.path.isfile(text):
 			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
 			continue
 		if not text.lower().endswith('.csv'):
-			print('Ścieżka nie prowadzi do pliku z rozszerzeniem .CSV.')
+			print('Ścieżka nie prowadzi do pliku z rozszerzeniem .csv.')
 			continue
 		else:
 			return text
 
 
 # Odczytanie sesji, której wyniki zawiera plik
-def read_session(championship: ChampionshipExt) -> Session:
+def read_session(championship: Championship) -> Session:
 	if championship.name == 'FIA World Endurance Championship':
 		options: list[dict[str, any]] = [
 			{'name': 'Treningowa/testowa', 'enum': Session.PRACTICE},
@@ -639,7 +631,7 @@ def read_session(championship: ChampionshipExt) -> Session:
 			print(f'{x + 1}. {options[x]['name']}')
 
 		try:
-			num = int(input('Wybór: '))
+			num: int = int(input('Wybór: ').strip())
 		except ValueError:
 			print(f'Podaj liczbę naturalną z przedziału 1-{len(options)}\n')
 			continue
@@ -651,14 +643,14 @@ def read_session(championship: ChampionshipExt) -> Session:
 
 
 # Odczytanie serii wyścigowej, różne serie mogą inaczej nazywać kolumny w plikach .CSV
-def read_series(championships: list[ChampionshipExt]) -> ChampionshipExt:
+def read_series(championships: list[Championship]) -> Championship:
 	print('\nPodaj serię wyścigową, z której pochodzą dane:')
 
 	while True:
 		for x in range(0, len(championships)):
 			print(f'{x + 1}. {championships[x].name}')
 		try:
-			num = int(input('Wybór: '))
+			num: int = int(input('Wybór: ').strip())
 		except ValueError:
 			print(f'Podaj liczbę naturalną z przedziału 1-{len(championships)}\n')
 			continue
@@ -671,22 +663,25 @@ def read_series(championships: list[ChampionshipExt]) -> ChampionshipExt:
 
 # Główna funkcja skryptu
 def main() -> None:
-	championship_list: list[ChampionshipExt] = get_championships()
+	championship_list: list[Championship] = get_championships()
 
 	if len(championship_list) == 0:
 		print('Nie znaleziono w bazie żadnych serii wyścigowych.')
 		return
 
-	plwiki_id = get_wiki_id('plwiki')
+	plwiki_id: int | None = get_wiki_id('plwiki')
 
-	if plwiki_id is None or plwiki_id == -1:
+	if plwiki_id is None:
+		return
+
+	if plwiki_id == -1:
 		msg: list[str] = [
 			'\nNie znaleziono w bazie polskiej wersji językowej Wikipedii.',
 			'Dane m.in. kierowców będą pobrane jedynie z pliku.'
 		]
-		print(' '.join(msg))
+		print(*msg, sep=' ')
 
-	championship_data: ChampionshipExt = read_series(championship_list)
+	championship_data: Championship = read_series(championship_list)
 
 	session: Session = read_session(championship_data)
 
