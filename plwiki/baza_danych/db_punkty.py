@@ -131,7 +131,7 @@ def read_session(sessions: list[DbSession]) -> DbSession:
 			return sessions[choice - 1]
 
 
-# Odczytanie ścieżki do pliku z klasyfikacją wyścigu
+# Odczytanie ścieżki do pliku z wynikami sesji
 def read_csv_path() -> str:
 	while True:
 		text = input('\nPodaj ścieżkę do pliku .CSV pobranego ze strony Alkamelsystems:\n').strip()
@@ -631,11 +631,11 @@ def main() -> None:
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
-		print('Nie udało się pobrać id polskiej wersji Wikipedii z bazy danych.' + cannot_continue_error)
+		print(cannot_continue_error)
 		return
 
 	if plwiki_id == -1:
-		print('Nie znaleziono polskiej wersji Wikipedii w bazie danych.' + cannot_continue_error)
+		print('\nNie znaleziono polskiej wersji Wikipedii w bazie danych.' + cannot_continue_error)
 		return
 
 	# Odczytanie id serii wyścigowej
