@@ -102,6 +102,9 @@ def read_path_to_results_csv() -> str:
         if not os.path.isfile(text):
             print('\nŚcieżka nieprawidłowa, spróbuj ponownie.')
             continue
+        if not text.lower().endswith('.csv'):
+            print('\nPodany plik nie posiada rozszerzenia .csv.')
+            continue
         if not verify_results_csv(text):
             print('\nPlik nie posiada wymaganej kolumny VEHICLE.')
             continue
