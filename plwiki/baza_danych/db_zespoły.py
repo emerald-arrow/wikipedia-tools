@@ -47,7 +47,7 @@ def read_results_csv(file: str, wiki_id: int, championship_id: int) -> list[Team
 	from common.db_queries.country_code_table import get_country_iso_alpha3
 	from common.db_queries.team_tables import check_team_exists
 
-	teams = list()
+	teams: list[Team] = list()
 
 	with open(file, mode='r', encoding='utf-8-sig') as csv_file:
 		csv_reader = csv.DictReader(csv_file, delimiter=';')
@@ -212,7 +212,7 @@ def choose_teams_csv_file() -> str:
 				f'\nJedyny znaleziony plik to {csv_files[0]}.',
 				'Czy chcesz zapisać jego zawartość do bazy danych?'
 			]
-			print(' '.join(msg))
+			print(*msg, sep=' ')
 
 			for x in options:
 				print(f'{x}. {options[x]}')
@@ -274,11 +274,11 @@ def read_teams_csv(path: str) -> list[Team]:
 			):
 				teams.append(
 					Team(
-						codename,
-						nationality,
-						car_number,
-						short_link,
-						long_link
+						codename=codename,
+						nationality=nationality,
+						car_number=car_number,
+						short_link=short_link,
+						long_link=long_link
 					)
 				)
 
