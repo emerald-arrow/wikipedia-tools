@@ -72,24 +72,24 @@ def print_points(points_columns) -> None:
 				if FULL_POINTS[x] is False:
 					doubled: Decimal = Decimal(session['race_points']) * 2
 					doubled = remove_zeros(doubled)
-					if suffix == '':
-						print("%s" % (points_to_positions[doubled]))
-					elif suffix == 'PP':
-						print("%s" % (points_to_positions[str(doubled) + 'PP']))
+
+					print(points_to_positions[str(doubled) + suffix])
 				else:
 					try:
 						if suffix == '':
-							print("%s" % (points_to_positions[session['race_points']]))
+							print(points_to_positions[session['race_points']])
 						elif suffix == 'PP':
-							print("%s" % (points_to_positions[str(session['race_points']) + 'PP']))
+							print(points_to_positions[str(session['race_points']) + 'PP'])
 					except KeyError:
-						print('NN')
+						print(' ')
 
 			elif session['status'] == 'not_classified':
+				nc_suffix: str = ''
+
 				if session['pole_points'] == 1:
-					print('%s' % (points_to_positions['NSPP']))
-				else:
-					print('%s' % (points_to_positions['NS']))
+					nc_suffix = 'PP'
+
+				print(print(points_to_positions['NS' + nc_suffix]))
 			elif session['status'] == 'did_not_race':
 				print('| –')
 			else:
@@ -108,10 +108,10 @@ def read_json(file_path: str, value_type: ClassificationData):
 		table_header: list[str] = [
 			'{| class="wikitable" style="font-size:85%; text-align:center;"',
 			'! {{Tooltip|Poz.|Pozycja}}',
-			'! Kierowca',
+			'! Kierowca' if value_type == ClassificationData.DRIVERS else '| Zespół',
 			f'! colspan="{len(championship_info["sessions"])}" | Rundy',
 			'! Punkty',
-			'|-',
+			'|-'
 		]
 
 		print(*table_header, sep='\n')
@@ -141,7 +141,7 @@ def read_json(file_path: str, value_type: ClassificationData):
 					print('| align="left" | {{{{Flaga|{flag}}}}} #{number} [[{team}}]]'.format(
 						flag=node['nat'],
 						number=node['key'],
-						team=node['team'],
+						team=node['team']
 					))
 				except KeyError:
 					print('| align="left" | ')
