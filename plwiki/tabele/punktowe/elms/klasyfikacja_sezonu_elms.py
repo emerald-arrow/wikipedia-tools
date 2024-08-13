@@ -20,30 +20,30 @@ class ClassificationData(Enum):
 FULL_POINTS = [True, True, True, True, True, True]
 
 # Pozycje i kolory tła dla systemu punktowego
-points_to_positions = {
-	25: '| style="background:#FFFFBF;" | 1',
+points_to_positions: dict[str, str] = {
+	'25': '| style="background:#FFFFBF;" | 1',
 	'25PP': '| style="background:#FFFFBF; font-weight: bold;" | 1',
-	18: '| style="background:#DFDFDF;" | 2',
+	'18': '| style="background:#DFDFDF;" | 2',
 	'18PP': '| style="background:#DFDFDF; font-weight: bold;" | 2',
-	15: '| style="background:#FFDF9F;" | 3',
+	'15': '| style="background:#FFDF9F;" | 3',
 	'15PP': '| style="background:#FFDF9F; font-weight: bold;" | 3',
-	12: '| style="background:#DFFFDF;" | 4',
+	'12': '| style="background:#DFFFDF;" | 4',
 	'12PP': '| style="background:#DFFFDF; font-weight: bold;" | 4',
-	10: '| style="background:#DFFFDF;" | 5',
+	'10': '| style="background:#DFFFDF;" | 5',
 	'10PP': '| style="background:#DFFFDF; font-weight: bold;" | 5',
-	8: '| style="background:#DFFFDF;" | 6',
+	'8': '| style="background:#DFFFDF;" | 6',
 	'8PP': '| style="background:#DFFFDF; font-weight: bold;" | 6',
-	6: '| style="background:#DFFFDF;" | 7',
+	'6': '| style="background:#DFFFDF;" | 7',
 	'6PP': '| style="background:#DFFFDF; font-weight: bold;" | 7',
-	4: '| style="background:#DFFFDF;" | 8',
+	'4': '| style="background:#DFFFDF;" | 8',
 	'4PP': '| style="background:#DFFFDF; font-weight: bold;" | 8',
-	2: '| style="background:#DFFFDF;" | 9',
+	'2': '| style="background:#DFFFDF;" | 9',
 	'2PP': '| style="background:#DFFFDF; font-weight: bold;" | 9',
-	1: '| style="background:#DFFFDF;" | 10',
+	'1': '| style="background:#DFFFDF;" | 10',
 	'1PP': '| style="background:#DFFFDF; font-weight: bold;" | 10',
-	0.5: '| style="background:#DFFFDF;" | >10',
+	'0.5': '| style="background:#DFFFDF;" | >10',
 	'0.5PP': '| style="background:#DFFFDF; font-weight: bold;" | >10',
-	0: '| style="background:#CFCFFF;" |',
+	'0': '| style="background:#CFCFFF;" |',
 	'0PP': '| style="background:#CFCFFF; font-weight: bold;" |',
 	'NS': '| style="background:#CFCFFF;" | NS',
 	'NSPP': '| style="background:#CFCFFF; font-weight: bold;" | NS'
@@ -76,10 +76,7 @@ def print_points(points_columns) -> None:
 					print(points_to_positions[str(doubled) + suffix])
 				else:
 					try:
-						if suffix == '':
-							print(points_to_positions[session['race_points']])
-						elif suffix == 'PP':
-							print(points_to_positions[str(session['race_points']) + 'PP'])
+						print(points_to_positions[str(session['race_points']) + suffix])
 					except KeyError:
 						print(' ')
 
@@ -89,7 +86,7 @@ def print_points(points_columns) -> None:
 				if session['pole_points'] == 1:
 					nc_suffix = 'PP'
 
-				print(print(points_to_positions['NS' + nc_suffix]))
+				print(points_to_positions['NS' + nc_suffix])
 			elif session['status'] == 'did_not_race':
 				print('| –')
 			else:
@@ -138,7 +135,7 @@ def read_json(file_path: str, value_type: ClassificationData):
 
 			elif value_type == ClassificationData.TEAMS:
 				try:
-					print('| align="left" | {{{{Flaga|{flag}}}}} #{number} [[{team}}]]'.format(
+					print('| align="left" | {{{{Flaga|{flag}}}}} #{number} [[{team}]]'.format(
 						flag=node['nat'],
 						number=node['key'],
 						team=node['team']
