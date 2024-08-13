@@ -1,6 +1,9 @@
 # Słownik zawierający odpowiednie pozycje i kolory tła dla systemu punktowego WEC od sezonu 2022,
 # 0 lub myślnik (-) spowodują wypisanie pustej komórki
 points_to_positions: dict[str, dict[str, str]] = {
+	'-': {
+		'0': '| '
+	},
 	'0': {
 		'0': '| '
 	},
