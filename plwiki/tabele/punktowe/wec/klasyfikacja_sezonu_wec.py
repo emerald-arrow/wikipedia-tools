@@ -188,7 +188,7 @@ def read_classification_type_input() -> Classification:
 
 
 # Odczytanie czy w wyścigach przydzielono pełne punkty
-def read_were_half_points_awarded() -> None:
+def read_were_half_points_awarded(season_races: int) -> None:
 	were_half_points_awarded = False
 
 	options: list[dict[str, bool]] = [
@@ -216,11 +216,11 @@ def read_were_half_points_awarded() -> None:
 			break
 	
 	if were_half_points_awarded:
-		read_half_points_races()
+		read_half_points_races(season_races)
 
 
 # Odczytanie, w których wyścigach przydzielono połowę punktów
-def read_half_points_races() -> None:
+def read_half_points_races(season_races: int) -> None:
 	global FULL_POINTS
 
 	num: int = 0
@@ -247,6 +247,10 @@ def read_half_points_races() -> None:
 			
 			if race_num <= 0:
 				print('Podaj liczbę naturalną')
+				continue
+			elif race_num > season_races:
+				print('Numer wyścigu nie może być większy niż liczba wyścigów w sezonie')
+				continue
 			else:
 				FULL_POINTS[race_num - 1] = False
 				break
@@ -289,6 +293,9 @@ def read_html_path() -> str:
 		if not os.path.isfile(text):
 			print('Ścieżka nieprawidłowa, spróbuj ponownie.')
 			continue
+		if not text.lower().endswith('.html'):
+			print("Plik pod podaną ścieżka nie zawiera rozszerzenia .html.")
+			continue
 		else:
 			return text
 
@@ -316,7 +323,7 @@ def main() -> None:
 
 		points_scales: list[str] = read_point_scales(flag_count)
 
-		read_were_half_points_awarded()
+		read_were_half_points_awarded(flag_count)
 
 		race_data: ResultSet = soup.find_all('tr', class_='tr-data')
 
