@@ -105,6 +105,7 @@ def print_table(
 	global points_offsets
 	points_offset: int = points_offsets[classification_type]
 
+	print('\nKod tabeli:\n')
 	print('{| class="wikitable" style="font-size:85%; text-align:center;"')
 	print('! {{Tooltip|Poz.|Pozycja}}')
 
