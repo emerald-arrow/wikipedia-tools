@@ -624,7 +624,7 @@ def read_session(championship: Championship) -> Session:
 			{'name': 'Wyścig', 'enum': Session.RACE}
 		]
 
-	print('\nWybierz sesję, która jest w podanym pliku .CSV:')
+	print('\nWybierz sesję, której wyniki są w podanym pliku .CSV:')
 
 	while True:
 		for x in range(0, len(options)):
@@ -663,15 +663,22 @@ def read_series(championships: list[Championship]) -> Championship:
 
 # Główna funkcja skryptu
 def main() -> None:
-	championship_list: list[Championship] = get_championships()
+	script_cannot_continue: str = 'Skrypt nie może kontynuować i zakończy swoje działanie.'
+
+	championship_list: list[Championship] | None = get_championships()
+
+	if championship_list is None:
+		print(f'\n{script_cannot_continue}')
+		return
 
 	if len(championship_list) == 0:
-		print('Nie znaleziono w bazie żadnych serii wyścigowych.')
+		print(f'\nNie znaleziono w bazie żadnych serii wyścigowych. {script_cannot_continue}')
 		return
 
 	plwiki_id: int | None = get_wiki_id('plwiki')
 
 	if plwiki_id is None:
+		print(f'\n{script_cannot_continue}')
 		return
 
 	if plwiki_id == -1:
