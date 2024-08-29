@@ -59,7 +59,7 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 
 			# Pogrubienie wierszy ze zwycięzcami klas
 			if category not in class_winners:
-				print('|- style="font-weight: bold;')
+				print('|- style="font-weight: bold;"')
 				class_winners.add(category)
 			else:
 				print('|-')
@@ -117,7 +117,7 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 				if len(driver_codename) > 1:
 					driver_data: Driver | None = get_driver_data_by_codename(driver_codename.lower(), wiki_id)
 
-					if driver_data is not None and not driver_data.empty_fields():
+					if driver_data is None or driver_data.empty_fields():
 						driver_name = driver_codename.split(' ', 1)
 						driver_data = Driver(
 							nationality='?',
@@ -232,7 +232,7 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 			)
 
 			if team_data is not None and not team_data.empty_fields():
-				print('| {{{{Flaga|{country}}}}} #{number} #{team_link}'.format(
+				print('| {{{{Flaga|{country}}}}} #{number} {team_link}'.format(
 					country=team_data.nationality,
 					number=team_data.car_number,
 					team_link=team_data.short_link
@@ -283,7 +283,7 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 				print('{start}{{{{Flaga|{flag}}}}} {link}'.format(
 					start=start,
 					flag=drivers[x].nationality,
-					link=drivers[x].long_link if drivers[x].long_link != '' else drivers[x].short_link
+					link=drivers[x].short_link
 				), end=end)
 
 			# Wypisanie uzyskanego czasu i straty
