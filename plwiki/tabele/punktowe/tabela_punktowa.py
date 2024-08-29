@@ -258,7 +258,8 @@ def main() -> None:
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.classification_tables import (
 		get_classification_results,
-		get_manufacturer_scoring_cars
+		get_manufacturer_scoring_cars,
+		check_classification_entities
 	)
 
 	# Znalezienie id polskiej wersji Wikipedii
@@ -283,6 +284,17 @@ def main() -> None:
 	if classification is None:
 		return
 
+	# Sprawdzenie, czy w bazie są dane potrzebne do wygenerowania kodu tabeli
+	check_db_data: bool | None = check_classification_entities(classification, plwiki_id)
+
+	if check_db_data is None:
+		return
+
+	if not check_db_data:
+		print('\nW bazie brakuje danych potrzebnych do wygenerowania tabeli z wybraną klasyfikacją.')
+		return
+
+	# Ustalenie ile wierszy zajmą wyniki, potrzebne do klasyfikacji producenckich
 	result_rows: int = 1
 
 	if classification.cl_type == 'MANUFACTURERS':
