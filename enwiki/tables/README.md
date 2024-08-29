@@ -1,1 +1,1 @@
-# Tools for creating tables
+# Tools used to generate tables

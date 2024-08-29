@@ -1,7 +1,4 @@
 # European Le Mans Series season classification
+**elms_season_classification.py** is a script that creates points table of a drivers/teams classification based on a .json file from [the official ELMS website](https://europeanlemansseries.com).
 
-## Description
-It is a script that creates points table of a drivers/teams classification based on .json file from [official ELMS website](https://europeanlemansseries.com).
-
-## Details
-Using a browser's developer tools it is needed to copy .json file that contains data about classification. The file can be downloaded after clicking "Season" in ELMS website and then "Classification". Another .json file download each time classification type is changed by the user. Save contents of .json response to a file and run the script. Follow script's instructions to get the code of classification table.
+Using a browser's developer tools it is needed to copy a .json response that contains data about classification. The file can be downloaded after clicking "Season" on ELMS website and then "Classification". The browser makes a GET request to ***api.europeanlemansseries.com/v1/ecm/classification?race=NUMBERS&type=NUMBERS*** and the response to this request should be the .json file with chosen classification data. Every time user changes classification another request is made and another .json file is downloaded. Save contents of that request's response to a file with .json extension and run the script. Follow script's instructions to get the code of classification table.
