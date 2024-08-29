@@ -239,15 +239,20 @@ def print_classification(
 				for a in cars_range:
 					result_cells[a].append('|')
 
+		formatted_points: str = f'{entity.points:g}'
+
+		if '.' in formatted_points:
+			formatted_points = formatted_points.replace('.', ',')
+
 		if rowspan == 1:
 			print(*result_cells[0], sep='\n')
-			print(f'! {entity.points}')
+			print(f'! {formatted_points}')
 			print('|-')
 		else:
 			for k in cars_range:
 				print(*result_cells[k], sep='\n')
 				if k == 0:
-					print(f'! rowspan="{rowspan}" | {entity.points}')
+					print(f'! rowspan="{rowspan}" | {formatted_points}')
 				print('|-')
 
 		prev_entity = entity

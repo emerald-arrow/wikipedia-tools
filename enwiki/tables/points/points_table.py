@@ -247,13 +247,13 @@ def print_classification(
 
 		if rowspan == 1:
 			print(*result_cells[0], sep='\n')
-			print(f'! {entity.points}')
+			print(f'! {entity.points:g}')
 			print('|-')
 		else:
 			for k in cars_range:
 				print(*result_cells[k], sep='\n')
 				if k == 0:
-					print(f'! rowspan="{rowspan}" | {entity.points}')
+					print(f'! rowspan="{rowspan}" | {entity.points:g}')
 				print('|-')
 
 		prev_entity = entity

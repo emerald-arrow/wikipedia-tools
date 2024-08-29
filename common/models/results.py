@@ -41,7 +41,7 @@ class RoundResult:
 
 class EntityResults:
     def __init__(
-        self, db_id: int, link: str, flag: str, points: int, car_no: int | None, results: list[RoundResult] | None = None
+        self, db_id: int, link: str, flag: str, points: float, car_no: int | None, results: list[RoundResult] | None = None
     ):
         self.db_id = db_id
         self.link = link
