@@ -1,11 +1,5 @@
 # FIA World Endurance Championship season classification
 
-## Description
-It is a script that creates points table of a drivers/teams/manufacturers classification based on HTML table from [FIA WEC official website](https://fiawec.com).
+**wec_season_classification.py** is a script that creates points table of drivers/manufacturers/teams classification based on a .html file downloaded from [the official FIA WEC website](https://fiawec.com).
 
-## Details
-Using a browser's developer tools it is needed to copy HTML code of a classification table. An example request sent by the browser looks like:
-
-``GET https://www.fiawec.com/en/season/result_search/4153?ranking_id=2440``
-
-Such request is sent after choosing "Season" from navigation bar at the top of the website and clicking "Classification". Any change of classification causes browser to send another request for right classification table in HTML.
+Using a browser's developer tools it is needed to copy a .html response that contains data about classification. The file can be downloaded after clicking "Season" on WEC website and then "Classification". The browser makes a GET request to ***fiawec.com/en/season/result_search/NUMBERS?ranking_id=NUMBERS*** and the response to this request should be the .html file with chosen classification data. Every time user changes classification another request is made and another .html file is downloaded. Save contents of that request's response to a file with .html extension and run the script. Follow script's instructions to get the code of classification table.
