@@ -215,6 +215,69 @@ def get_races_number(classification_id: int) -> int | None:
 		return -1 if result is None else int(result[0])
 
 
+# Gets number of entities which scored in given classification
+def get_all_scoring_entities_number(db: Connection, classification_id: int) -> int:
+	with db:
+		query: str = '''
+			SELECT COUNT (DISTINCT entity_id)
+			FROM score
+			WHERE score.classification_id = :cl_id;
+		'''
+
+		result: tuple[int] = db.execute(
+			query,
+			{'cl_id': classification_id}
+		).fetchone()
+
+		return result[0]
+
+
+# Gets number of entities which scored in given classification and have data needed to print Wikipedia tables
+def get_wikipedia_scoring_entities_number(
+		db: Connection, classification: Classification, wiki_id: int | None
+) -> int | None:
+	with db:
+		query: str = '''
+			SELECT COUNT (DISTINCT entity_id)
+			FROM score
+			JOIN {entity_table}
+			ON {entity_table}.id = score.entity_id
+			JOIN {wikipedia_table}
+			ON {entity_table}.id = {wikipedia_table}.{entity_id}
+			WHERE score.classification_id = :cl_id
+			AND {wikipedia_table}.wikipedia_id = :wiki;
+		'''
+
+		match classification.cl_type:
+			case 'DRIVERS':
+				query = query.format(
+					entity_table='driver',
+					wikipedia_table='driver_wikipedia',
+					entity_id='driver_id',
+				)
+			case 'TEAMS':
+				query = query.format(
+					entity_table='team',
+					wikipedia_table='team_wikipedia',
+					entity_id='team_id',
+				)
+			case 'MANUFACTURERS':
+				query = query.format(
+					entity_table='manufacturer',
+					wikipedia_table='manufacturer_wikipedia',
+					entity_id='manufacturer_id',
+				)
+			case _:
+				return None
+
+		result: tuple[int] = db.execute(
+			query,
+			{'cl_id': classification.db_id, 'wiki': wiki_id}
+		).fetchone()
+
+		return result[0]
+
+
 # Checks whether entity under given id can score in given classification
 def check_points_eligibility(classification_id: int, entity_id: int) -> bool | None:
 	db: Connection | None = db_connection()
@@ -267,6 +330,21 @@ def check_round_session(classification_id: int, round_number: int, session_id: i
 		result = db.execute(query, params).fetchone()
 
 		return False if result is None else bool(result[0])
+
+
+#
+def check_classification_entities(classification: Classification, wiki_id: int) -> bool | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	all_entities: int = get_all_scoring_entities_number(db, classification.db_id)
+
+	wikipedia_entities: int | None = get_wikipedia_scoring_entities_number(db, classification, wiki_id)
+
+	return all_entities == wikipedia_entities if wikipedia_entities is not None else False
 
 
 # Adds a score to the database
