@@ -21,6 +21,7 @@ if True:  # noqa: E402
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import Driver
 	from common.models.teams import Team, TeamEligibility
+	from common.models.points import AwardedPoints
 
 # Message when script must stop its execution
 script_cannot_continue = "Script cannot continue and it's going to stop its execution."
@@ -362,11 +363,32 @@ def find_result_style(
 			return None
 
 
+# Reads whether full points were awarded for race
+def read_full_points() -> AwardedPoints:
+	while True:
+		print('\nWere full points awarded for this race?')
+		print('1. Yes\n2. No')
+
+		try:
+			ans = int(input('Choice (1-2): ').strip())
+		except ValueError:
+			print('\nPlease enter 1 or 2.')
+			continue
+
+		if ans == 1:
+			return AwardedPoints.FULL
+		elif ans == 2:
+			return AwardedPoints.HALF
+		else:
+			print('\nPlease enter 1 or 2.')
+
+
 # Calculates positions in classifications
 def calculate_classifications_positions(
 	rows: list[ResultRow], classifications: list[Classification],
 	scoring_styles: list[StyledPosition], nonscoring_styles: list[StyledStatus],
-	session: str, oem_classifications_scoring: list[ClassificationScoring]
+	session: str, oem_classifications_scoring: list[ClassificationScoring],
+	awarded_points: AwardedPoints
 ) -> list[ResultRow]:
 	from common.db_queries.manufacturer_table import get_manufacturers
 
@@ -410,7 +432,7 @@ def calculate_classifications_positions(
 			if found is not None:
 				if found[0] is not None:
 					row.eligible_classifications.team_style_id = found[0]
-					row.eligible_classifications.team_points = found[1]
+					row.eligible_classifications.team_points = found[1] * awarded_points.multiplier
 
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.team_position = team_position
@@ -456,7 +478,7 @@ def calculate_classifications_positions(
 				if found is not None:
 					if found[0] is not None:
 						row.eligible_classifications.manufacturer_style_id = found[0]
-						row.eligible_classifications.manufacturer_points = found[1]
+						row.eligible_classifications.manufacturer_points = found[1] * awarded_points.multiplier
 
 						if row.status not in nonscoring_statuses:
 							row.eligible_classifications.manufacturer_position = oem_position
@@ -478,7 +500,7 @@ def calculate_classifications_positions(
 			if found is not None:
 				if found[0] is not None:
 					row.eligible_classifications.driver_style_id = found[0]
-					row.eligible_classifications.driver_points = found[1]
+					row.eligible_classifications.driver_points = found[1] * awarded_points.multiplier
 
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.driver_position = driver_position
@@ -708,6 +730,12 @@ def main() -> None:
 		print('\nNo styling of race results found.' + script_cannot_continue)
 		return
 
+	# Checking whether race's results are being added, if so reads awarded points
+	if session.name == 'RACE':
+		awarded_points: AwardedPoints = read_full_points()
+	else:
+		awarded_points: AwardedPoints = AwardedPoints.FULL
+
 	# Getting points system with styles in Wikipedia tables
 	styled_positions: list[StyledPosition] = get_styled_points_system(
 		championship_id=championship_id,
@@ -741,7 +769,8 @@ def main() -> None:
 		scoring_styles=styled_positions,
 		nonscoring_styles=nonscoring_statuses,
 		session=session.name,
-		oem_classifications_scoring=oem_scoring_cars
+		oem_classifications_scoring=oem_scoring_cars,
+		awarded_points=awarded_points
 	)
 
 	if len(rows) == 0:

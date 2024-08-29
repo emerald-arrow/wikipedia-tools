@@ -21,6 +21,7 @@ if True:  # noqa: E402
 	from common.models.styles import StyledStatus, StyledPosition
 	from common.models.driver import Driver
 	from common.models.teams import Team, TeamEligibility
+	from common.models.points import AwardedPoints
 
 
 # Odczytanie id serii, której klasyfikacje mają zostać wygenerowane
@@ -359,11 +360,32 @@ def find_result_style(
 			return None
 
 
+# Odczytanie przyznanej puli punktowej w wyścigu
+def read_full_points() -> AwardedPoints:
+	while True:
+		print('\nCzy w tym wyścigu przyznano pełną pulę punktów?')
+		print('1. Tak\n2. Nie')
+
+		try:
+			ans = int(input('Wybór (1-2): ').strip())
+		except ValueError:
+			print('\nPodaj liczbę 1 lub 2.')
+			continue
+
+		if ans == 1:
+			return AwardedPoints.FULL
+		elif ans == 2:
+			return AwardedPoints.HALF
+		else:
+			print('\nPodaj liczbę 1 lub 2.')
+
+
 # Wyliczenie pozycji w klasyfikacjach i dobranie stylów kolorowania
 def calculate_classifications_positions(
 	rows: list[ResultRow], classifications: list[Classification],
 	scoring_styles: list[StyledPosition], nonscoring_styles: list[StyledStatus],
-	session: str, oem_classifications_scoring: list[ClassificationScoring]
+	session: str, oem_classifications_scoring: list[ClassificationScoring],
+	awarded_points: AwardedPoints
 ) -> list[ResultRow]:
 	from common.db_queries.manufacturer_table import get_manufacturers
 
@@ -407,7 +429,7 @@ def calculate_classifications_positions(
 			if found is not None:
 				if found[0] is not None:
 					row.eligible_classifications.team_style_id = found[0]
-					row.eligible_classifications.team_points = found[1]
+					row.eligible_classifications.team_points = found[1] * awarded_points.multiplier
 
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.team_position = team_position
@@ -453,7 +475,7 @@ def calculate_classifications_positions(
 				if found is not None:
 					if found[0] is not None:
 						row.eligible_classifications.manufacturer_style_id = found[0]
-						row.eligible_classifications.manufacturer_points = found[1]
+						row.eligible_classifications.manufacturer_points = found[1] * awarded_points.multiplier
 
 						if row.status not in nonscoring_statuses:
 							row.eligible_classifications.manufacturer_position = oem_position
@@ -475,7 +497,7 @@ def calculate_classifications_positions(
 			if found is not None:
 				if found[0] is not None:
 					row.eligible_classifications.driver_style_id = found[0]
-					row.eligible_classifications.driver_points = found[1]
+					row.eligible_classifications.driver_points = found[1] * awarded_points.multiplier
 
 					if row.status not in nonscoring_statuses:
 						row.eligible_classifications.driver_position = driver_position
@@ -706,6 +728,12 @@ def main() -> None:
 		print('\nNie znaleziono styli wyników wyścigu.' + cannot_continue_error)
 		return
 
+	# Sprawdzenie, czy dodawane są wyniki wyścigu, jeśli tak to czy przyznano w nim pełną pulę punktów
+	if session.name == 'RACE':
+		awarded_points: AwardedPoints = read_full_points()
+	else:
+		awarded_points: AwardedPoints = AwardedPoints.FULL
+
 	# Pobranie systemu punktowego razem ze stylami kolorowania tabeli
 	styled_positions: list[StyledPosition] = get_styled_points_system(
 		championship_id=championship_id,
@@ -739,7 +767,8 @@ def main() -> None:
 		scoring_styles=styled_positions,
 		nonscoring_styles=nonscoring_statuses,
 		session=session.name,
-		oem_classifications_scoring=oem_scoring_cars
+		oem_classifications_scoring=oem_scoring_cars,
+		awarded_points=awarded_points
 	)
 
 	if len(rows) == 0:

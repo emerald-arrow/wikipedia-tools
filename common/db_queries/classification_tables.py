@@ -145,7 +145,7 @@ def get_classification_results(classification: Classification, wiki_id: int) -> 
 			prev_score: RoundResult | None = None
 
 			for res in round_results:
-				new_entity.points += int(res[3])
+				new_entity.points += float(res[3])
 
 				score: RoundResult = RoundResult(
 										number=int(res[0]),
