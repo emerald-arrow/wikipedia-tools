@@ -12,7 +12,35 @@ if True:  # noqa: E402
 	from common.models.styles import Style
 
 
-# Gets all classifications of a championship
+# Gets seasons of championship's active classifications
+def get_active_classifications_seasons(championship_id: int) -> list[str] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	seasons: list[str] = list()
+
+	with db:
+		query: str = '''
+			SELECT DISTINCT season
+			FROM classification cl
+			JOIN title t
+			ON t.id = cl.title_id
+			WHERE cl.active = 1
+			AND t.championship_id = :id;
+		'''
+
+		result: list[str] = db.execute(query, {'id': championship_id}).fetchall()
+
+		for r in result:
+			seasons.append(r[0])
+
+		return seasons
+
+
+# Gets all active classifications of a championship
 def get_classifications_by_champ_id(championship_id: int) -> list[Classification] | None:
 	db: Connection | None = db_connection()
 
@@ -34,6 +62,46 @@ def get_classifications_by_champ_id(championship_id: int) -> list[Classification
 			AND cl.active = 1;
 		'''
 		params = {'ch_id': championship_id}
+
+		result = db.execute(query, params).fetchall()
+
+		if result is not None:
+			for r in result:
+				classifications.append(
+					Classification(
+						db_id=int(r[0]),
+						name=r[1],
+						championship_id=championship_id,
+						cl_type=r[2],
+						season=r[3]
+					)
+				)
+
+		return classifications
+
+
+# Gets classifications of a championship within given season
+def get_champ_classifications_by_season(championship_id: int, season: str) -> list[Classification] | None:
+	db: Connection | None = db_connection()
+
+	if db is None:
+		print("Couldn't connect to the database.")
+		return None
+
+	classifications: list[Classification] = list()
+
+	with db:
+		query = '''
+			SELECT cl.id, t.name, ct.name, cl.season
+			FROM classification cl
+			JOIN title t
+			ON t.id = cl.title_id
+			JOIN classification_type ct
+			ON ct.id = t.type_id
+			WHERE t.championship_id = :ch_id
+			AND season = :season;
+		'''
+		params = {'ch_id': championship_id, 'season': season}
 
 		result = db.execute(query, params).fetchall()
 

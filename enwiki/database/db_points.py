@@ -59,6 +59,55 @@ def read_championship() -> int | None:
 			return championships[num - 1].db_id
 
 
+# Reads season from which the results will be added
+def read_season(championship_id: int) -> str | None:
+	from common.db_queries.classification_tables import get_active_classifications_seasons
+
+	seasons: list[str] | None = get_active_classifications_seasons(championship_id)
+
+	if seasons is None:
+		return None
+
+	if len(seasons) == 0:
+		print('\nNo active classifications of this series in database.')
+		return None
+
+	if len(seasons) == 1:
+		while True:
+			print(f'\nThe only available season is {seasons[0]}. Would you like to continue?')
+			print('1. Yes\n2. No')
+
+			try:
+				ans = int(input('Choice (1-2): ').strip())
+			except ValueError:
+				print('\nPlease enter 1 or 2.')
+				continue
+
+			if ans == 1:
+				return seasons[0]
+			elif ans == 2:
+				return ''
+			else:
+				print('\nPlease enter 1 or 2.')
+
+	while True:
+		print('\nPlease choose a season from which results the results will be added:')
+		for x in range(0, len(seasons)):
+			print(f'{x + 1}. {seasons[x]}')
+
+		try:
+			num = int(input(f'Choice (1-{len(seasons)}): ').strip())
+		except (TypeError, ValueError):
+			print(f'\nPlease enter a natural number from 1-{len(seasons)} range.')
+			continue
+
+		if num not in range(1, len(seasons) + 1):
+			print(f'\nPlease enter a natural number from 1-{len(seasons)} range.')
+			continue
+		else:
+			return seasons[num - 1]
+
+
 # Gets numbers of scoring cars in manufacturers' classifications
 def get_oem_scoring_cars(classifications: list[Classification]) -> list[ClassificationScoring] | None:
 	from common.db_queries.classification_tables import get_manufacturer_scoring_cars
@@ -640,7 +689,7 @@ def add_results_to_db(rows: list[ResultRow], round_number: int, session: DbSessi
 
 # Script's main function
 def main() -> None:
-	from common.db_queries.classification_tables import get_classifications_by_champ_id
+	from common.db_queries.classification_tables import get_champ_classifications_by_season
 	from common.db_queries.wikipedia_table import get_wiki_id
 	from common.db_queries.points_tables import (
 		get_points_scales,
@@ -670,9 +719,16 @@ def main() -> None:
 		print(script_cannot_continue)
 		return
 
+	# Reading season from which results will be added
+	season: str | None = read_season(championship_id)
+
+	if season is None or season == '':
+		return
+
 	# Getting classifications of chosen championship (series)
-	classifications: list[Classification] = get_classifications_by_champ_id(
-		championship_id
+	classifications: list[Classification] = get_champ_classifications_by_season(
+		championship_id,
+		season
 	)
 
 	if len(classifications) == 0:
