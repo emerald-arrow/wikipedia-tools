@@ -1,1 +1,0 @@
-# Narzędzia do tworzenia tabel
