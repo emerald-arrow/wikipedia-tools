@@ -7,23 +7,24 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Connection to the SQLite database
+ * Class for connecting to the SQLite database
  */
 public class SQLiteConnection implements DbConnection {
     private static final String DB_PATH = ".\\database.db";
 
     /**
-     * Returns connection to the SQLite database.
-     * @return a {@code Connection} to the SQLite database under
-     * {@code DB_PATH} file path.
+     * Provides connection to the SQLite database.
+     * @return a {@link Connection} to the SQLite database under DB_PATH
+     * file path.
      */
     @Override
-    public Connection getDbConnection() {
+    public Connection getDbConnection() throws SQLException {
         try {
-            return DriverManager.getConnection(String.format("jdbc:sqlite:%s", DB_PATH));
+            return DriverManager.getConnection(
+                    String.format("jdbc:sqlite:%s", DB_PATH)
+            );
         } catch (SQLException e) {
-            System.out.println(e.getLocalizedMessage());
-            return null;
+            throw new SQLException(e);
         }
     }
 }

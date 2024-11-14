@@ -3,22 +3,27 @@ package io.wikipedia_tools.utils.db;
 import io.wikipedia_tools.utils.db.impl.SQLiteConnection;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
- * Connection to the currently used database.
+ * Class that provides connection to the currently used database.
  */
 public class DbUtil {
 
     private DbUtil() {}
 
     /**
-     * Connection to the SQLite database.
-     * @return a {@code Connection} to the SQLite database that is currently
+     * Provides connection to the SQLite database, currently used database.
+     * @return a {@link Connection} to the SQLite database that is currently
      * used.
      */
-    public static Connection getConnection() {
+    public static Connection getConnection() throws SQLException {
         DbConnection conn = new SQLiteConnection();
 
-        return conn.getDbConnection();
+        try {
+            return conn.getDbConnection();
+        } catch (SQLException e) {
+            throw new SQLException(e);
+        }
     }
 }

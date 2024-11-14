@@ -1,15 +1,16 @@
 package io.wikipedia_tools.utils.db;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
- * Classes that implement this interface return a connection to the database
+ * Interface for classes that establish connections to databases.
  */
 public interface DbConnection {
 
     /**
-     * Establishes connection to the database and returns that connection.
-     * @return {@link java.sql.Connection} to the database.
+     * Provides {@link Connection} to app's database.
+     * @return the Connection to app's database.
      */
-    Connection getDbConnection();
+    Connection getDbConnection() throws SQLException;
 }
