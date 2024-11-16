@@ -10,11 +10,14 @@ import java.sql.SQLException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+/**
+ * Tests of {@link SQLiteConnection} class.
+ */
 class SQLiteConnectionTest {
     private SQLiteConnection sqliteConnection;
 
     @BeforeEach
-    public void init() {
+    void init() {
         sqliteConnection = new SQLiteConnection();
     }
 
