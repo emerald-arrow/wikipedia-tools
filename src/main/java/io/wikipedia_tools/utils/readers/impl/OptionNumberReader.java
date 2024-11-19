@@ -51,6 +51,8 @@ public class OptionNumberReader extends OptionReader<Integer> {
 
             try {
                 number = reader.read();
+            } catch (NumberFormatException e) {
+                System.out.println(e.getLocalizedMessage());
             } catch (IOException e) {
                 throw new IOException(e.getCause());
             }
