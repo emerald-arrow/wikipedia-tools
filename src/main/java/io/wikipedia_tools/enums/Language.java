@@ -6,17 +6,21 @@ import java.util.Locale;
  * Enum for languages supported by the app.
  */
 public enum Language {
-    ENGLISH(Locale.of("en")),
-    POLISH(Locale.of("pl"));
+    ENGLISH(Locale.of("en"), "English"),
+    POLISH(Locale.of("pl"), "polski");
 
     private final Locale locale;
+    private final String name;
 
     /**
-     * The constructor for Language enum.
-     * @param locale a {@link Locale}.
+     * The constructor of Language enum.
+     * @param locale a {@link Locale} attributed to the Language.
+     * @param name a {@link String} with the name of the Language in that
+     *             language.
      */
-    Language(Locale locale) {
+    Language(Locale locale, String name) {
         this.locale = locale;
+        this.name = name;
     }
 
     /**
@@ -25,6 +29,14 @@ public enum Language {
      */
     public Locale getLocale() {
         return locale;
+    }
+
+    /**
+     * Returns enum's language name.
+     * @return a {@link String} with enum's language name in that language.
+     */
+    public String getName() {
+        return name;
     }
 
     /**

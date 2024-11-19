@@ -55,6 +55,57 @@ public class AppContext {
     }
 
     /**
+     * Changes language used by the app.
+     * @param locale a {@link Locale} to switch to that consists of with
+     *               language's two-letter code
+     *               (<a href="https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes">ISO 639-1</a>).
+     * @return a boolean - true when changing language succeeds, false when
+     * changing language fails.
+     */
+    public static boolean changeLanguage(Locale locale) {
+        if (locale == null) {
+            throw new IllegalArgumentException("Locale must not be null");
+        }
+
+        try {
+            currentLanguage = Language.fromLanguageCode(locale.getLanguage());
+
+            Localisation.changeBundle(currentLanguage);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Changes Wikipedia version used by the app.
+     * @param version a {@link WikipediaVersion} enum with Wikipedia version
+     *                to be changed to.
+     * @return a boolean - true when changing version succeeds, false when
+     * changing version fails.
+     */
+    public static boolean changeWikiVersion(WikipediaVersion version) {
+        if (currentWikipediaVersion.equals(version)) {
+            return true;
+        }
+
+        try {
+            Wikipedia foundWikipedia = getWikipedia(version);
+
+            if (foundWikipedia != null) {
+                currentWikipediaVersion = version;
+                currentWikipedia = foundWikipedia;
+                return true;
+            }
+
+            return false;
+        } catch (SQLException e) {
+            System.out.println(e.getLocalizedMessage());
+            return false;
+        }
+    }
+
+    /**
      * Returns current {@link Language}.
      * @return the Language from the currentLanguage field.
      */
