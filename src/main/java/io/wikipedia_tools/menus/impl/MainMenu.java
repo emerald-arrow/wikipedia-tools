@@ -51,11 +51,13 @@ public class MainMenu implements Menu {
     }
 
     /**
-     * Prepares a {@link LinkedHashMap} of localised {@link Menu} options to
-     * be set as MainMenu's menuOptions field.
+     * Prepares an unmodifiable {@link Map} of localised {@link Menu} options
+     * to be set as MainMenu's menuOptions field.
      * @return the unmodifiable {@link Map} of Menu options. All options are
      * translated accordingly to the language used by the app at the moment
-     * of creating an instance of MainMenu class.
+     * of creating an instance of MainMenu class. The order of insertion
+     * is preserved due to using {@link LinkedHashMap} that is wrapped by
+     * unmodifiable Map.
      */
     private Map<String, Menu> prepareMenuOptions() {
         Map<String, Menu> options = new LinkedHashMap<>() {

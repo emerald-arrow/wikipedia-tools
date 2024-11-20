@@ -9,7 +9,8 @@ import io.wikipedia_tools.utils.readers.impl.OptionNumberReader;
 import java.io.IOException;
 
 /**
- * Class for menu with app's options for user to adjust.
+ * Class for menu with app's options for user to adjust. Menu's options are
+ * not stored as fields to avoid the StackOverflowError exception.
  */
 public class SettingsMenu implements Menu {
 
