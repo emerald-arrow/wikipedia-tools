@@ -262,7 +262,7 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 			for x in range(1, 5):  # type: int
 				if (
 					row[f'DRIVER{x}_FIRSTNAME'] is None
-					or row[f'DRIVER{x}_FIRSTNAME'] == ''
+					or row[f'DRIVER{x}_FIRSTNAME'] == '' and row[f'DRIVER{x}_SECONDNAME'] == ''
 				):
 					continue
 
@@ -275,7 +275,7 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 
 				if driver_data is None or driver_data.empty_fields():
 					driver_data = Driver(
-						short_link=driver_name,
+						short_link=driver_name.strip(),
 						nationality=row[f'DRIVER{x}_COUNTRY']
 					)
 
