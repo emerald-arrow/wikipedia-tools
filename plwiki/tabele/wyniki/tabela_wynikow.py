@@ -119,9 +119,15 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 
 					if driver_data is None or driver_data.empty_fields():
 						driver_name = driver_codename.split(' ', 1)
+
+						driver_short_link = driver_name[0]
+
+						if len(driver_name) > 1:
+							driver_short_link += f' {driver_name[1].capitalize()}'
+
 						driver_data = Driver(
 							nationality='?',
-							short_link=f'[[{driver_name[0]} {driver_name[1].capitalize()}]]'
+							short_link=driver_short_link
 						)
 
 					drivers.append(driver_data)
