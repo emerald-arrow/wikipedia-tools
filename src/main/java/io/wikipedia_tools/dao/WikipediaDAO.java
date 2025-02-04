@@ -7,24 +7,26 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Interface for obtaining data from "wikipedia" table in the database.
+ * Interface for obtaining Wikipedia data from the database.
  */
 public interface WikipediaDAO {
 
     /**
-     * Retrieves data about single Wikipedia version from "wikipedia" table.
-     * @param wikipediaVersion a {@link WikipediaVersion} used to retrieve
-     *                         data from the database.
-     * @return a {@link Wikipedia} object with data matching of given enum.
+     * Retrieves data about single Wikipedia version from the database and
+     * returns it as a {@code Wikipedia} object.
+     * @param wikipediaVersion a WikipediaVersion used to retrieve data from
+     *                         the database.
+     * @return a Wikipedia object with data matching given wikipediaVersion.
      * @throws SQLException when an error occurs during execution of the
      * query.
      */
     Wikipedia get(WikipediaVersion wikipediaVersion) throws SQLException;
 
     /**
-     * Retrieves data about all Wikipedia versions present in the "wikipedia"
-     * table.
-     * @return a {@link List} of {@link Wikipedia} objects.
+     * Retrieves data about all Wikipedia versions from the database and
+     * returns it as a {@code List} of {@code Wikipedia} objects.
+     * @return a List of Wikipedia objects that consists of all Wikipedia
+     * versions stored in the database.
      * @throws SQLException when an error occurs during execution of the
      * query.
      */

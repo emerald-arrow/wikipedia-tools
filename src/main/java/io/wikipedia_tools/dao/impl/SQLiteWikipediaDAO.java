@@ -10,18 +10,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Class that retrieves data from the "wikipedia" table in the SQLite
- * database.
+ * Class that retrieves Wikipedia data from the SQLite database.
  */
 public class SQLiteWikipediaDAO implements WikipediaDAO {
 
     /**
-     * Retrieves data about single Wikipedia version from "wikipedia" table
-     * in the SQLite database.
-     * @param wikipediaVersion a {@link WikipediaVersion} enum used to
-     *                         retrieve data from the database.
-     * @return the {@link  Wikipedia} object with data matching given
-     * WikipediaVersion enum.
+     * Retrieves data about single Wikipedia version from the SQLite database
+     * and returns it as a {@code Wikipedia} object.
+     * @param wikipediaVersion a WikipediaVersion used to retrieve data from
+     *                         the database.
+     * @return a Wikipedia object with data matching given wikipediaVersion.
      * @throws SQLException when an error occurs during execution of the
      * query.
      */
@@ -46,18 +44,16 @@ public class SQLiteWikipediaDAO implements WikipediaDAO {
                     );
                 }
             }
-        } catch (SQLException e) {
-            throw new SQLException(e);
         }
 
         return null;
     }
 
     /**
-     * Retrieves data about all Wikipedia versions from "wikipedia" table in
-     * the SQLite database.
-     * @return an unmodifiable {@link List} of {@link Wikipedia} objects that
-     * represent all Wikipedia versions in the database.
+     * Retrieves data about all Wikipedia versions from the SQLite database and
+     * returns it as a {@code List} of {@code Wikipedia} objects.
+     * @return an unmodifiable List of Wikipedia objects that consists of all
+     * Wikipedia versions stored in the database.
      * @throws SQLException when an error occurs during execution of the
      * query.
      */
@@ -78,8 +74,6 @@ public class SQLiteWikipediaDAO implements WikipediaDAO {
                 );
                 versions.add(newVersion);
             }
-        } catch (SQLException e) {
-            throw new SQLException(e);
         }
 
         return List.copyOf(versions);
