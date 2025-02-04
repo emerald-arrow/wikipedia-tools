@@ -66,4 +66,8 @@ public enum WikipediaVersion {
                 "There is not Wikipedia version with given Locale."
         );
     }
+
+    public Locale getLocale() {
+        return locale;
+    }
 }
