@@ -72,7 +72,7 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 
 			# Wypisanie klasy z ewentualną dodatkową grupą (np. Pro/Am)
 			if 'GROUP' in row and row['GROUP'] != '':
-				print(f'| align="center" | {category}<br />{row['GROUP']}')
+				print(f'| align="center" | {category}<br>{row['GROUP']}')
 			else:
 				print(f'| align="center" | {category}')
 
@@ -137,10 +137,10 @@ def print_race_table(championship: Championship, filepath: str, wiki_id: int) ->
 					start: str = '| '
 					end: str = ''
 				elif 0 < x < len(drivers) - 1:
-					start: str = '<br />'
+					start: str = '<br>'
 					end: str = ''
 				else:
-					start: str = '<br />'
+					start: str = '<br>'
 					end: str = '\n'
 
 				print('{start}{{{{Flaga|{flag}}}}} {link}'.format(
@@ -280,10 +280,10 @@ def print_qualifying_table(championship: Championship, filepath: str, wiki_id: i
 					start: str = '| '
 					end: str = ''
 				elif 0 < x < len(drivers) - 1:
-					start: str = '<br />'
+					start: str = '<br>'
 					end: str = ''
 				else:
-					start: str = '<br />'
+					start: str = '<br>'
 					end: str = '\n'
 
 				print('{start}{{{{Flaga|{flag}}}}} {link}'.format(
